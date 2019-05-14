@@ -1,0 +1,15 @@
+[package]
+name = "rit"
+version = "0.1.0"
+authors = ["Thom May <thommay@improbable.io>"]
+edition = "2018"
+
+[dependencies]
+clap = "*"
+sha1 = {version ="0.6.0", features = ["std"]}
+uuid = {version = "*", features = ["v4"]}
+flate2 = "*"
+byteorder = "*"
+failure = "0.1.5"
+libc = "0.2"
+indexmap = "*"
