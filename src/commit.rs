@@ -1,5 +1,5 @@
-use crate::database::Storable;
 use crate::author::Author;
+use crate::database::Storable;
 use std::fmt::Write;
 
 #[derive(Debug)]
@@ -13,7 +13,12 @@ pub struct Commit {
 impl Commit {
     pub fn new(parent: Option<String>, oid: &str, author: Author, message: String) -> Self {
         let oid = String::from(oid);
-        Self { parent, oid, author, message }
+        Self {
+            parent,
+            oid,
+            author,
+            message,
+        }
     }
 }
 
@@ -24,7 +29,12 @@ impl Storable for Commit {
             Some(p) => write!(&mut content, "parent {}", p).unwrap(),
             None => {}
         }
-        write!(&mut content, "author {}\ncommitter {}\n\n{}", self.author, self.author, self.message).unwrap();
+        write!(
+            &mut content,
+            "author {}\ncommitter {}\n\n{}",
+            self.author, self.author, self.message
+        )
+        .unwrap();
         format!("commit {}\0{}", content.len(), content).into()
     }
 }

@@ -1,17 +1,17 @@
-use crate::entry::Entry;
 use crate::database::Storable;
-use std::io::Write;
-use std::path::Component;
+use crate::entry::Entry;
 use crate::utilities::pack_data;
 use indexmap::IndexMap;
+use std::io::Write;
+use std::path::Component;
 
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub struct Tree {
     pub entries: IndexMap<String, TreeEntry>,
     pub name: String,
 }
 
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub enum TreeEntry {
     Entry(Entry),
     Tree(Tree),
@@ -19,7 +19,10 @@ pub enum TreeEntry {
 
 impl Tree {
     pub fn build(mut entries: Vec<Entry>, name: &str) -> Self {
-        let mut root = Tree{ entries: IndexMap::new(), name: String::from(name)};
+        let mut root = Tree {
+            entries: IndexMap::new(),
+            name: String::from(name),
+        };
         entries.sort_unstable_by_key(|k| k.name.clone());
         for entry in entries {
             let mut parts: Vec<Component> = entry.name.components().collect();
@@ -32,17 +35,26 @@ impl Tree {
     fn add_entry(&mut self, parts: Vec<Component>, name: &str, entry: Entry) {
         if let Some((first, rest)) = parts.split_first() {
             if first == &Component::CurDir && rest.is_empty() {
-                self.entries.insert(String::from(name), TreeEntry::Entry(entry));
+                self.entries
+                    .insert(String::from(name), TreeEntry::Entry(entry));
             } else if first == &Component::CurDir {
                 self.add_entry(rest.to_vec(), name, entry);
             } else {
                 let first = first.as_os_str().to_str().unwrap();
-                if let TreeEntry::Tree(ref mut tree) = self.entries.entry(first.into()).or_insert(TreeEntry::Tree(Tree { entries: IndexMap::new(), name: first.into() })) {
+                if let TreeEntry::Tree(ref mut tree) =
+                    self.entries
+                        .entry(first.into())
+                        .or_insert(TreeEntry::Tree(Tree {
+                            entries: IndexMap::new(),
+                            name: first.into(),
+                        }))
+                {
                     tree.add_entry(rest.to_vec(), name, entry);
                 }
             }
         } else {
-            self.entries.insert(String::from(name), TreeEntry::Entry(entry));
+            self.entries
+                .insert(String::from(name), TreeEntry::Entry(entry));
         }
     }
 
@@ -50,7 +62,10 @@ impl Tree {
         "40000".into()
     }
 
-    pub fn traverse<T>(&self, f: &T) where T: Fn(Tree) {
+    pub fn traverse<T>(&self, f: &T)
+    where
+        T: Fn(Tree),
+    {
         for entry in self.entries.values() {
             if let TreeEntry::Tree(tree) = entry {
                 tree.traverse(f);
@@ -64,13 +79,12 @@ impl Storable for Tree {
     fn serialize(&self) -> Vec<u8> {
         let mut data = Vec::new();
         for (name, entry) in &self.entries {
-            dbg!(&name);
             let ret = match entry {
                 TreeEntry::Tree(t) => {
                     let mode = t.mode();
                     let oid = t.oid();
                     pack_data(mode.as_ref(), name.as_ref(), oid.as_ref()).unwrap()
-                },
+                }
                 TreeEntry::Entry(e) => e.metadata(),
             };
             data.write_all(&ret).unwrap();

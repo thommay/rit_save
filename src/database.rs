@@ -1,11 +1,11 @@
-use std::path::PathBuf;
 use failure::Error;
-use std::fs::OpenOptions;
 use flate2::write::ZlibEncoder;
 use flate2::Compression;
+use std::fs::OpenOptions;
 use std::io::Write;
+use std::path::PathBuf;
 
-#[derive(Default,Debug)]
+#[derive(Default, Debug)]
 pub struct Database {
     path: PathBuf,
 }
@@ -15,7 +15,10 @@ impl Database {
         Self { path }
     }
 
-    pub fn store<T>(&self, blob: T) -> Result<(), Error> where T: Storable {
+    pub fn store<T>(&self, blob: T) -> Result<(), Error>
+    where
+        T: Storable,
+    {
         let content = blob.serialize();
         let oid = blob.oid();
         self.write(oid, content)
@@ -33,14 +36,17 @@ impl Database {
         let tmpnam = dir.join(uuid::Uuid::new_v4().to_simple().to_string());
         std::fs::create_dir_all(dir)?;
 
-        let mut file = OpenOptions::new().write(true).create_new(true).open(&tmpnam)?;
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&tmpnam)?;
 
         let mut e = ZlibEncoder::new(Vec::new(), Compression::default());
         e.write_all(&content)?;
         file.write(e.finish()?.as_ref())?;
 
         drop(file);
-        std::fs::rename(tmpnam,path)?;
+        std::fs::rename(tmpnam, path)?;
 
         Ok(())
     }
@@ -48,10 +54,12 @@ impl Database {
 
 pub trait Storable {
     fn serialize(&self) -> Vec<u8>;
-    fn oid(&self) -> String { sha1::Sha1::from( &self.serialize()).hexdigest() }
+    fn oid(&self) -> String {
+        sha1::Sha1::from(&self.serialize()).hexdigest()
+    }
 }
 
-#[derive(Clone,Debug,Default)]
+#[derive(Clone, Debug, Default)]
 pub struct Blob {
     data: String,
 }
@@ -61,7 +69,9 @@ impl Blob {
         Self { data }
     }
 
-    fn content(&self) -> String {self.data.to_string()}
+    fn content(&self) -> String {
+        self.data.to_string()
+    }
 }
 
 impl Storable for Blob {

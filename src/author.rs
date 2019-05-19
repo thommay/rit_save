@@ -1,5 +1,5 @@
-#[derive(Default,Debug)]
-pub struct Author{
+#[derive(Default, Debug)]
+pub struct Author {
     name: String,
     email: String,
     time: u64,
@@ -7,7 +7,10 @@ pub struct Author{
 
 impl Author {
     pub fn new(name: String, email: String, t: std::time::SystemTime) -> Self {
-        let time = t.duration_since(std::time::SystemTime::UNIX_EPOCH).unwrap().as_secs();
+        let time = t
+            .duration_since(std::time::SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
         Author { name, email, time }
     }
 }

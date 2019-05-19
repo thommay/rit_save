@@ -1,7 +1,7 @@
-use std::path::PathBuf;
 use crate::utilities::pack_data;
+use std::path::PathBuf;
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct Entry {
     executable: bool,
     pub name: PathBuf,
@@ -10,15 +10,19 @@ pub struct Entry {
 
 impl Entry {
     pub fn new(name: PathBuf, oid: String, executable: bool) -> Self {
-        Entry { executable, name, oid }
+        Entry {
+            executable,
+            name,
+            oid,
+        }
     }
 
     pub fn mode(&self) -> String {
-        if self.executable { "100755".into()} else { "100644".into()}
-    }
-
-    pub fn oid(&self) -> &str {
-        &self.oid.as_ref()
+        if self.executable {
+            "100755".into()
+        } else {
+            "100644".into()
+        }
     }
 
     pub fn filename(&self) -> &str {
@@ -31,4 +35,3 @@ impl Entry {
         pack_data(mode.as_ref(), n, self.oid.as_ref()).unwrap()
     }
 }
-
