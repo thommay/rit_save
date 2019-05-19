@@ -1,5 +1,5 @@
 use crate::database::Storable;
-use crate::entry::Entry;
+use crate::index::entry::Entry;
 use crate::utilities::pack_data;
 use indexmap::IndexMap;
 use std::io::Write;
@@ -18,14 +18,13 @@ pub enum TreeEntry {
 }
 
 impl Tree {
-    pub fn build(mut entries: Vec<Entry>, name: &str) -> Self {
+    pub fn build(entries: Vec<Entry>, name: &str) -> Self {
         let mut root = Tree {
             entries: IndexMap::new(),
             name: String::from(name),
         };
-        entries.sort_unstable_by_key(|k| k.name.clone());
         for entry in entries {
-            let mut parts: Vec<Component> = entry.name.components().collect();
+            let mut parts: Vec<Component> = entry.path.components().collect();
             let name = parts.pop().unwrap().as_os_str().to_str().unwrap();
             root.add_entry(parts, name, entry.clone());
         }

@@ -11,8 +11,9 @@ pub struct Commit {
 }
 
 impl Commit {
-    pub fn new(parent: Option<String>, oid: &str, author: Author, message: String) -> Self {
+    pub fn new(parent: Option<String>, oid: &str, author: Author, message: &str) -> Self {
         let oid = String::from(oid);
+        let message = String::from(message);
         Self {
             parent,
             oid,

@@ -4,7 +4,6 @@ use failure::Error;
 use std::fs::Metadata;
 use std::io;
 use std::io::Write;
-use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 
 pub fn pack_data(mode: &str, name: &str, oid: &str) -> Result<Vec<u8>, Error> {
@@ -32,12 +31,11 @@ pub fn stat_file(path: &Path) -> io::Result<Metadata> {
     std::fs::metadata(path)
 }
 
-pub fn is_executable(path: &Path) -> Result<bool, Error> {
-    let mode = stat_file(path)?.mode();
+pub fn is_executable(mode: u32) -> bool {
     let xugo: u32 = (libc::S_IXUSR | libc::S_IXGRP | libc::S_IXOTH).into();
     if (mode & xugo) > 0 {
-        Ok(true)
+        true
     } else {
-        Ok(false)
+        false
     }
 }
