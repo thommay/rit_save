@@ -2,15 +2,17 @@ use crate::lockfile::Lockfile;
 use failure::Error;
 use std::fs::OpenOptions;
 use std::io::Read;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub struct Refs {
     path: PathBuf,
 }
 
 impl Refs {
-    pub fn new(path: PathBuf) -> Self {
-        Refs { path }
+    pub fn new<P: AsRef<Path>>(path: P) -> Self {
+        Refs {
+            path: path.as_ref().to_path_buf(),
+        }
     }
 
     pub fn get_head(&self) -> Option<String> {
@@ -24,11 +26,10 @@ impl Refs {
     }
 
     pub fn update_head(&self, oid: &str) -> Result<(), Error> {
-        Lockfile::new(&self.head_path())?
-            .try_lock()?
-            .write(oid)?
-            .write("\n")?
-            .commit()
+        let lock = Lockfile::new(&self.head_path())?.try_lock()?;
+        lock.write_all(oid.as_bytes())?;
+        lock.write_all("\n".as_bytes())?;
+        lock.commit()
     }
 
     fn head_path(&self) -> PathBuf {

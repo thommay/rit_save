@@ -59,7 +59,7 @@ fn main() -> BoxResult<()> {
 fn git_add(matches: &ArgMatches) -> BoxResult<()> {
     let root = std::path::Path::new(".");
 
-    let workspace = workspace::Workspace::new(root.into());
+    let workspace = workspace::Workspace::new(root);
     let db = database::Database::new(root.join(".git/objects"));
     let mut index = index::Index::from(root.join(".git/index"))?;
 
@@ -70,7 +70,11 @@ fn git_add(matches: &ArgMatches) -> BoxResult<()> {
         .iter()
     {
         let path = std::path::PathBuf::from(p);
-        for file in workspace.list_files(Some(path))?.iter() {
+        let files = workspace.list_files(Some(path));
+        if files.is_err() {
+            continue;
+        }
+        for file in files.unwrap().iter() {
             let data = workspace.read_file(file)?;
             let stat = stat_file(file)?;
 

@@ -1,71 +1,113 @@
 use crate::index::entry::Entry;
+use crate::lockfile::Lockfile;
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use failure::Error;
 use fs2::FileExt;
 use sha1::Sha1;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 pub mod entry;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Index {
     entries: BTreeMap<String, Entry>,
-    index: PathBuf,
+    parents: HashMap<String, Vec<PathBuf>>,
     changed: bool,
+    lock: Lockfile,
 }
 
 impl Index {
-    pub fn new(index: PathBuf) -> Self {
-        Index {
+    pub fn new<P: AsRef<Path>>(index: P) -> Result<Self, Error> {
+        let lock = Lockfile::new(index)?.try_lock()?;
+        Ok(Index {
             entries: BTreeMap::new(),
-            index,
+            parents: HashMap::new(),
             changed: false,
-        }
+            lock,
+        })
     }
 
-    pub fn from(index: PathBuf) -> Result<Self, Error> {
-        let mut index = Index::new(index);
+    pub fn from<P: AsRef<Path>>(index: P) -> Result<Self, Error> {
+        let mut index = Index::new(index)?;
         index.load()?;
         Ok(index)
     }
 
-    pub fn add(&mut self, path: &Path, oid: &str, stat: std::fs::Metadata) {
+    pub fn add<P: AsRef<Path> + Copy>(&mut self, path: P, oid: &str, stat: std::fs::Metadata) {
         let entry = Entry::new(path, stat, oid);
-        self.entries.insert(path.to_str().unwrap().into(), entry);
+
+        let pth = path.as_ref().to_str().unwrap().to_owned();
+
+        self.discard_conflicts(&entry);
+
+        for dir in entry.parent_directories() {
+            let dir = dir.to_str().unwrap().to_string();
+            self.parents
+                .entry(dir)
+                .and_modify(|e| e.push(entry.path.clone()))
+                .or_insert(vec![entry.path.clone()]);
+        }
+
+        self.entries.insert(pth, entry);
         self.changed = true;
     }
 
-    pub fn write_updates(&mut self) -> Result<(), Error> {
+    fn discard_conflicts(&mut self, entry: &Entry) {
+        for dir in entry.parent_directories() {
+            let key = dir.as_os_str().to_str().unwrap();
+            self.remove_entry(key);
+        }
+        if let Some(children) = self.parents.clone().get(entry.path.to_str().unwrap()) {
+            for child in children {
+                let key = child.as_os_str().to_str().unwrap();
+                self.remove_entry(key);
+            }
+        }
+    }
+
+    fn remove_entry(&mut self, key: &str) {
+        if let Some(entry) = self.entries.get(key) {
+            for dir in entry.parent_directories() {
+                self.parents
+                    .entry(dir.to_str().unwrap().into())
+                    .and_modify(|f| {
+                        if let Ok(index) = f.binary_search(&PathBuf::from(key)) {
+                            f.remove(index);
+                        }
+                    });
+            }
+        } else {
+            return;
+        }
+        self.entries.remove(key);
+    }
+
+    pub fn write_updates(mut self) -> Result<(), Error> {
         if !self.changed {
             return Ok(());
         }
-        let mut index = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(&self.index)?;
-        index.try_lock_exclusive()?;
 
         let mut digest = Sha1::new();
         let mut header = Vec::new();
         write!(&mut header, "DIRC")?;
         header.write_u32::<BigEndian>(2u32)?;
         header.write_u32::<BigEndian>(self.entries.len() as u32)?;
-        self.write(&mut index, &mut digest, header)?;
+        self.write(&mut digest, header)?;
 
-        for (_name, entry) in &self.entries {
-            self.write(&mut index, &mut digest, entry.pack()?)?;
+        for entry in self.entries.values() {
+            self.write(&mut digest, entry.pack()?)?;
         }
-        index.write(&digest.digest().bytes())?;
+        self.lock.write_all(&digest.digest().bytes())?;
         self.changed = false;
+        self.lock.commit()?;
         Ok(())
     }
 
     pub fn load(&mut self) -> Result<(), Error> {
-        let index = OpenOptions::new().read(true).open(&self.index);
+        let index = OpenOptions::new().read(true).open(&self.lock.path);
 
         let mut index = match index {
             Err(ref e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
@@ -113,6 +155,7 @@ impl Index {
 
     fn clear(&mut self) {
         self.entries = BTreeMap::new();
+        self.parents = HashMap::new();
         self.changed = false;
     }
 
@@ -122,8 +165,8 @@ impl Index {
         Ok(res)
     }
 
-    fn write(&self, index: &mut File, digest: &mut Sha1, data: Vec<u8>) -> Result<(), Error> {
-        index.write(data.as_slice())?;
+    fn write(&self, digest: &mut Sha1, data: Vec<u8>) -> Result<(), Error> {
+        self.lock.write_all(data.as_slice())?;
         digest.update(&data);
         Ok(())
     }
@@ -133,4 +176,114 @@ impl From<Index> for Vec<Entry> {
     fn from(index: Index) -> Self {
         index.entries.values().cloned().collect()
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use lazy_static::lazy_static;
+    use std::path::PathBuf;
+
+    lazy_static! {
+        static ref TEST_ROOT: PathBuf = {
+            let mut path = std::env::current_exe().expect("couldn't read executable name");
+            path.pop(); // remove the executable name
+            path.pop(); // remove `debug`
+            path.pop();
+
+            path
+        };
+
+        static ref FILE_STAT: std::fs::Metadata = {
+            std::fs::metadata(std::env::current_exe().expect("couldn't read executable name")).unwrap()
+        };
+
+
+        static ref INDEX: PathBuf = {
+            TEST_ROOT.to_path_buf().join("index")
+        };
+
+        static ref LOCK: PathBuf = {
+            TEST_ROOT.to_path_buf().join("index.lock")
+        };
+
+        static ref OID: String = {
+            sha1::Sha1::from("my test string").hexdigest()
+        };
+    }
+
+    #[test]
+    fn test_add() {
+        let mut index = Index::new(INDEX.to_path_buf()).unwrap();
+        index.add("alice.txt", &*OID, FILE_STAT.clone());
+        assert_eq!(index.entries.len(), 1);
+        let mut entries = index.entries.values().map(|x| x.filename());
+        std::fs::remove_file(LOCK.to_path_buf()).unwrap();
+        assert_eq!(entries.next(), Some("alice.txt"))
+    }
+
+    #[test]
+    fn test_replace_file_with_dir() {
+        let mut index = Index::new(INDEX.to_path_buf()).unwrap();
+        index.add("alice.txt", &*OID, FILE_STAT.clone());
+        index.add("bob.txt", &*OID, FILE_STAT.clone());
+        assert_eq!(index.entries.len(), 2);
+        index.add("alice.txt/nested.txt", &*OID, FILE_STAT.clone());
+        let entry_paths: Vec<Option<&str>> =
+            index.entries.values().map(|x| x.path.to_str()).collect();
+        std::fs::remove_file(LOCK.to_path_buf()).unwrap();
+        assert_eq!(
+            vec![Some("alice.txt/nested.txt"), Some("bob.txt")],
+            entry_paths
+        )
+    }
+
+    #[test]
+    fn test_replace_deep_file_with_dir() {
+        let mut index = Index::new(INDEX.to_path_buf()).unwrap();
+        index.add("alice.txt", &*OID, FILE_STAT.clone());
+        index.add("bob.txt", &*OID, FILE_STAT.clone());
+        index.add("bob.txt/deep", &*OID, FILE_STAT.clone());
+        assert_eq!(index.entries.len(), 2);
+        index.add("alice.txt/nested.txt", &*OID, FILE_STAT.clone());
+        index.add("bob.txt/deep/nested.txt", &*OID, FILE_STAT.clone());
+        let entry_paths: Vec<Option<&str>> =
+            index.entries.values().map(|x| x.path.to_str()).collect();
+        std::fs::remove_file(LOCK.to_path_buf()).unwrap();
+        assert_eq!(
+            vec![
+                Some("alice.txt/nested.txt"),
+                Some("bob.txt/deep/nested.txt")
+            ],
+            entry_paths
+        )
+    }
+
+    #[test]
+    fn test_replace_dir_with_file() {
+        let mut index = Index::new(INDEX.to_path_buf()).unwrap();
+        index.add("alice.txt/nested.txt", &*OID, FILE_STAT.clone());
+        index.add("bob.txt", &*OID, FILE_STAT.clone());
+        assert_eq!(index.entries.len(), 2);
+        index.add("alice.txt", &*OID, FILE_STAT.clone());
+        let entry_paths: Vec<Option<&str>> =
+            index.entries.values().map(|x| x.path.to_str()).collect();
+        std::fs::remove_file(LOCK.to_path_buf()).unwrap();
+        assert_eq!(vec![Some("alice.txt"), Some("bob.txt")], entry_paths)
+    }
+
+    #[test]
+    fn test_replace_dir_with_file_recursively() {
+        let mut index = Index::new(INDEX.to_path_buf()).unwrap();
+        index.add("alice.txt/deep/nested.txt", &*OID, FILE_STAT.clone());
+        index.add("bob.txt", &*OID, FILE_STAT.clone());
+        assert_eq!(index.entries.len(), 2);
+        index.add("alice.txt", &*OID, FILE_STAT.clone());
+        let entry_paths: Vec<Option<&str>> =
+            index.entries.values().map(|x| x.path.to_str()).collect();
+        std::fs::remove_file(LOCK.to_path_buf()).unwrap();
+        assert_eq!(vec![Some("alice.txt"), Some("bob.txt")], entry_paths)
+    }
+
 }

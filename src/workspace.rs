@@ -11,8 +11,10 @@ pub struct Workspace {
 }
 
 impl Workspace {
-    pub fn new(path: PathBuf) -> Self {
-        Workspace { path }
+    pub fn new<P: AsRef<Path>>(path: P) -> Self {
+        Workspace {
+            path: path.as_ref().to_path_buf(),
+        }
     }
 
     pub fn list_files(&self, path: Option<PathBuf>) -> io::Result<Vec<PathBuf>> {
@@ -21,6 +23,9 @@ impl Workspace {
             None => &self.path,
         };
 
+        if !path.exists() {
+            return Err(std::io::ErrorKind::NotFound.into());
+        }
         if path.is_dir() {
             visit_dirs(&path)
         } else {
@@ -48,7 +53,7 @@ fn visit_dirs(path: &Path) -> io::Result<Vec<PathBuf>> {
             &entry
         };
 
-        if IGNORED.into_iter().any(|&x| p.starts_with(x)) {
+        if IGNORED.iter().any(|&x| p.starts_with(x)) {
             continue;
         }
         if p.is_dir() {

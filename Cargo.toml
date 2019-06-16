@@ -15,3 +15,7 @@ libc = "0.2"
 indexmap = "*"
 fs2 = "*"
 hex = "*"
+
+[dev-dependencies]
+rand = "*"
+lazy_static = "*"

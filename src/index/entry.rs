@@ -5,7 +5,7 @@ use std::cmp::{Ord, Ordering};
 use std::fs::Metadata;
 use std::io::{Read, Write};
 use std::os::unix::fs::MetadataExt;
-use std::path::{Path, PathBuf};
+use std::path::{Ancestors, Path, PathBuf};
 
 #[derive(Clone, Debug)]
 pub struct Entry {
@@ -25,8 +25,8 @@ pub struct Entry {
 }
 
 impl Entry {
-    pub fn new(path: &Path, stat: Metadata, oid: &str) -> Self {
-        let path = path.to_path_buf();
+    pub fn new<P: AsRef<Path>>(path: P, stat: Metadata, oid: &str) -> Self {
+        let path = path.as_ref().to_path_buf();
         let pathlength = path.to_str().unwrap().len();
         let flags: u16 = if pathlength > 0xFFF {
             0xFFF
@@ -138,6 +138,10 @@ impl Entry {
         let mode = self.mode();
         let n = self.filename();
         pack_data(mode.as_ref(), n, self.oid.as_ref()).unwrap()
+    }
+
+    pub fn parent_directories(&self) -> Ancestors {
+        self.path.parent().unwrap().ancestors()
     }
 }
 

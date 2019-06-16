@@ -8,14 +8,14 @@ use failure::Error;
 
 #[derive(Debug, Default)]
 pub struct Lockfile {
-    path: PathBuf,
+    pub path: PathBuf,
     lock: PathBuf,
     file: RefCell<Option<File>>,
 }
 
 impl Lockfile {
-    pub fn new(path: &Path) -> Result<Self, Error> {
-        let path = path.to_path_buf();
+    pub fn new<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
+        let path = path.as_ref().to_path_buf();
         if let Some(name) = path.file_name() {
             let mut name = name.to_os_string();
             name.push(".lock");
@@ -39,9 +39,9 @@ impl Lockfile {
         Ok(self)
     }
 
-    pub fn write(self, content: &str) -> Result<Self, Error> {
+    pub fn write_all(&self, content: &[u8]) -> Result<&Self, Error> {
         if let Some(ref mut file) = *self.file.borrow_mut() {
-            file.write(content.as_bytes())?;
+            file.write_all(content)?;
         } else {
             return Err(format_err!(
                 "Unable to get reference to file; did you already lock it?"

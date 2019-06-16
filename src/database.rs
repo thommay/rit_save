@@ -3,7 +3,7 @@ use flate2::write::ZlibEncoder;
 use flate2::Compression;
 use std::fs::OpenOptions;
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Default, Debug)]
 pub struct Database {
@@ -11,8 +11,10 @@ pub struct Database {
 }
 
 impl Database {
-    pub fn new(path: PathBuf) -> Self {
-        Self { path }
+    pub fn new<P: AsRef<Path>>(path: P) -> Self {
+        Self {
+            path: path.as_ref().to_path_buf(),
+        }
     }
 
     pub fn store<T>(&self, blob: T) -> Result<(), Error>
@@ -43,7 +45,7 @@ impl Database {
 
         let mut e = ZlibEncoder::new(Vec::new(), Compression::default());
         e.write_all(&content)?;
-        file.write(e.finish()?.as_ref())?;
+        file.write_all(e.finish()?.as_ref())?;
 
         drop(file);
         std::fs::rename(tmpnam, path)?;

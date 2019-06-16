@@ -33,9 +33,5 @@ pub fn stat_file(path: &Path) -> io::Result<Metadata> {
 
 pub fn is_executable(mode: u32) -> bool {
     let xugo: u32 = (libc::S_IXUSR | libc::S_IXGRP | libc::S_IXOTH).into();
-    if (mode & xugo) > 0 {
-        true
-    } else {
-        false
-    }
+    (mode & xugo) > 0
 }
