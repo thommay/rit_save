@@ -10,7 +10,7 @@ use std::path::{Ancestors, Path, PathBuf};
 #[derive(Clone, Debug)]
 pub struct Entry {
     pub path: PathBuf,
-    oid: String,
+    pub oid: String,
     flags: u16,
     ctime: u32,
     ctime_ns: u32,

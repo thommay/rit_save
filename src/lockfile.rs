@@ -50,6 +50,13 @@ impl Lockfile {
         Ok(self)
     }
 
+    pub fn release(self) -> Result<(), Error> {
+        let file = self.file.into_inner().unwrap();
+        drop(file);
+        std::fs::remove_file(self.lock)?;
+        Ok(())
+    }
+
     pub fn commit(self) -> Result<(), Error> {
         let file = self.file.into_inner().unwrap();
         drop(file);

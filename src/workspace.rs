@@ -1,8 +1,9 @@
 use failure::Error;
-use std::fs::File;
+use std::fs::{File, Metadata};
 use std::io;
 use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::collections::BTreeMap;
 
 const IGNORED: [&str; 6] = [".", "..", ".git", "target", ".idea", "cmake-build-debug"];
 
@@ -15,6 +16,32 @@ impl Workspace {
         Workspace {
             path: path.as_ref().to_path_buf(),
         }
+    }
+
+    pub fn list_dir(&self, path: Option<PathBuf>) -> io::Result<BTreeMap<PathBuf, Metadata>> {
+        let path = match path {
+            Some(ref p) => p,
+            None => &self.path,
+        };
+
+        let mut stats = BTreeMap::new();
+        for entry in std::fs::read_dir(path)? {
+            let entry = entry?.path();
+
+            let p = if entry.starts_with(".") {
+                entry.strip_prefix("./").unwrap()
+            } else {
+                &entry
+            };
+
+            if IGNORED.iter().any(|&x| p.starts_with(x)) {
+                continue;
+            }
+            let stat = std::fs::metadata(&p)?;
+            stats.insert(p.to_path_buf(), stat);
+        }
+
+        Ok(stats)
     }
 
     pub fn list_files(&self, path: Option<PathBuf>) -> io::Result<Vec<PathBuf>> {

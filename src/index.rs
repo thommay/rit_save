@@ -39,7 +39,11 @@ impl Index {
     pub fn add<P: AsRef<Path> + Copy>(&mut self, path: P, oid: &str, stat: std::fs::Metadata) {
         let entry = Entry::new(path, stat, oid);
 
-        let pth = path.as_ref().to_str().unwrap().to_owned();
+        self.add_entry(entry);
+    }
+
+    fn add_entry(&mut self, entry: Entry) {
+        let pth = entry.path.to_str().unwrap().to_owned();
 
         self.discard_conflicts(&entry);
 
@@ -48,7 +52,7 @@ impl Index {
             self.parents
                 .entry(dir)
                 .and_modify(|e| e.push(entry.path.clone()))
-                .or_insert(vec![entry.path.clone()]);
+                .or_insert_with(|| vec![entry.path.clone()]);
         }
 
         self.entries.insert(pth, entry);
@@ -68,6 +72,10 @@ impl Index {
         }
     }
 
+    pub fn release_lock(self) -> Result<(), Error> {
+        self.lock.release()
+    }
+
     fn remove_entry(&mut self, key: &str) {
         if let Some(entry) = self.entries.get(key) {
             for dir in entry.parent_directories() {
@@ -85,8 +93,13 @@ impl Index {
         self.entries.remove(key);
     }
 
+    pub fn has_entry(&self, key: &str) -> bool {
+        self.entries.contains_key(key) || self.parents.contains_key(key)
+    }
+
     pub fn write_updates(mut self) -> Result<(), Error> {
         if !self.changed {
+            self.lock.release()?;
             return Ok(());
         }
 
@@ -133,7 +146,7 @@ impl Index {
                 entry.extend_from_slice(&ex);
             }
             let e = Entry::from(&mut entry)?;
-            self.entries.insert(e.path.to_str().unwrap().into(), e);
+            self.add_entry(e);
         }
 
         let mut csum = Vec::new();
@@ -170,11 +183,9 @@ impl Index {
         digest.update(&data);
         Ok(())
     }
-}
 
-impl From<Index> for Vec<Entry> {
-    fn from(index: Index) -> Self {
-        index.entries.values().cloned().collect()
+    pub fn entries(&self) -> Vec<Entry> {
+        self.entries.values().cloned().collect()
     }
 }
 

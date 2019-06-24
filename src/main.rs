@@ -3,6 +3,7 @@ use crate::commit::Commit;
 use crate::database::{Blob, Storable};
 use crate::tree::Tree;
 use crate::utilities::stat_file;
+
 use clap::App;
 use clap::ArgMatches;
 use clap::{Arg, SubCommand};
@@ -17,6 +18,7 @@ mod refs;
 mod tree;
 mod utilities;
 mod workspace;
+mod commands;
 
 type BoxResult<T> = Result<T, Box<std::error::Error>>;
 
@@ -43,12 +45,16 @@ fn main() -> BoxResult<()> {
         .subcommand(
             SubCommand::with_name("init").arg(Arg::with_name("PATH").required(true).index(1)),
         )
+        .subcommand(
+            SubCommand::with_name("status")
+        )
         .get_matches();
 
     match app.subcommand() {
         ("add", Some(m)) => git_add(m),
         ("commit", Some(m)) => git_commit(m),
         ("init", Some(m)) => git_init(m),
+        ("status", Some(m)) => commands::status::exec(m),
         _ => {
             println!("unrecognised command");
             Err(From::from("unrecognised command"))
@@ -72,7 +78,9 @@ fn git_add(matches: &ArgMatches) -> BoxResult<()> {
         let path = std::path::PathBuf::from(p);
         let files = workspace.list_files(Some(path));
         if files.is_err() {
-            continue;
+            index.release_lock()?;
+            eprintln!("fatal: pathspec '{}' did not match any files", p);
+            std::process::exit(128);
         }
         for file in files.unwrap().iter() {
             let data = workspace.read_file(file)?;
@@ -95,7 +103,7 @@ fn git_commit(matches: &ArgMatches) -> BoxResult<()> {
     let refs = refs::Refs::new(root.join(".git"));
     let index = index::Index::from(root.join(".git/index"))?;
 
-    let root = Tree::build(index.into(), ".");
+    let root = Tree::build(index.entries(), ".");
     root.traverse(&|x| db.store(x).unwrap());
 
     let name = std::env::var("GIT_AUTHOR_NAME")?;
@@ -126,6 +134,7 @@ fn git_commit(matches: &ArgMatches) -> BoxResult<()> {
     refs.update_head(&commit.oid())?;
 
     db.store(commit)?;
+    index.release_lock()?;
     Ok(())
 }
 
@@ -136,3 +145,5 @@ fn git_init(matches: &ArgMatches) -> BoxResult<()> {
     std::fs::create_dir_all(target.join("refs"))?;
     Ok(())
 }
+
+
