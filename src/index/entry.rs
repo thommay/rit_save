@@ -122,6 +122,23 @@ impl Entry {
         Ok(data)
     }
 
+    pub fn stat_match(&self, stat: Option<&Metadata>) -> bool {
+        if let Some(stat) = stat {
+            (is_executable(stat.mode()) == is_executable(self.mode)) && (self.size == stat.size() as u32)
+        } else {
+             return false
+        }
+    }
+
+    pub fn stat_times_match(&self, stat: Option<&Metadata>) -> bool {
+        if let Some(stat) = stat {
+            self.ctime_ns == stat.ctime_nsec() as u32 && self.ctime == stat.ctime() as u32 &&
+                self.mtime_ns == stat.mtime_nsec() as u32  && self.mtime == stat.mtime() as u32
+        } else {
+            return false
+        }
+    }
+
     pub fn mode(&self) -> String {
         if is_executable(self.mode) {
             "100755".into()

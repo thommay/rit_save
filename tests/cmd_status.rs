@@ -3,6 +3,8 @@ use std::fs::File;
 use std::io::Write;
 use std::process::Command;
 use tempdir::TempDir;
+use std::os::unix::fs::PermissionsExt;
+
 
 fn prepare_repo() -> Result<TempDir, std::io::Error> {
     let tmp = TempDir::new("rit")?;
@@ -38,6 +40,24 @@ fn mkdir(repo: &TempDir, path: &str)  -> Result<(), std::io::Error> {
     Ok(())
 }
 
+fn make_executable(repo: &TempDir, path: &str)  -> Result<(), std::io::Error> {
+    let dn = repo.path().join(path);
+    let perms = std::fs::Permissions::from_mode(0o0755);
+    std::fs::set_permissions(dn, perms)?;
+    Ok(())
+}
+
+fn delete(repo: &TempDir, path: &str) -> Result<(), std::io::Error> {
+    let dn = repo.path().join(path);
+    let m = std::fs::metadata(&dn)?;
+    if m.is_dir() {
+        std::fs::remove_dir_all(dn)?;
+    } else {
+        std::fs::remove_file(dn)?;
+    }
+    Ok(())
+}
+
 fn commit(repo: &TempDir, message: &str) -> Result<(), std::io::Error> {
     let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
     cmd.env("GIT_AUTHOR_EMAIL", "author@example.com")
@@ -48,6 +68,104 @@ fn commit(repo: &TempDir, message: &str) -> Result<(), std::io::Error> {
         .arg(message)
         .assert()
         .success();
+    Ok(())
+}
+
+fn prepare_commits(repo: &TempDir, files: Vec<&str>) -> Result<(), std::io::Error> {
+    for file in files {
+        write_file(repo, file, file, true)?;
+    }
+    commit(repo, "commit")
+}
+
+#[test]
+fn quiet_when_nothing() -> Result<(), Box<std::error::Error>> {
+    let repo = prepare_repo()?;
+    prepare_commits(&repo, vec!["1.txt", "a/2.txt", "a/b/3.txt"])?;
+    let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME"))?;
+    cmd.current_dir(repo.path())
+        .arg("status")
+        .assert()
+        .success()
+        .stdout("");
+    Ok(())
+}
+
+#[test]
+fn reports_deleted_files() -> Result<(), Box<std::error::Error>> {
+    let repo = prepare_repo()?;
+    prepare_commits(&repo, vec!["1.txt", "a/2.txt", "a/b/3.txt"])?;
+    delete(&repo, "1.txt")?;
+    let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME"))?;
+    cmd.current_dir(repo.path())
+        .arg("status")
+        .assert()
+        .success()
+        .stdout(r#" D 1.txt
+"#);
+    Ok(())
+}
+
+#[test]
+fn reports_files_in_deleted_dir() -> Result<(), Box<std::error::Error>> {
+    let repo = prepare_repo()?;
+    prepare_commits(&repo, vec!["1.txt", "a/2.txt", "a/b/3.txt"])?;
+    delete(&repo, "a")?;
+    let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME"))?;
+    cmd.current_dir(repo.path())
+        .arg("status")
+        .assert()
+        .success()
+        .stdout(r#" D a/2.txt
+ D a/b/3.txt
+"#);
+    Ok(())
+}
+
+#[test]
+fn reports_files_with_modified_contents() -> Result<(), Box<std::error::Error>> {
+    let repo = prepare_repo()?;
+    prepare_commits(&repo, vec!["1.txt", "a/2.txt", "a/b/3.txt"])?;
+    write_file(&repo, "1.txt", "changed", false)?;
+    write_file(&repo, "a/2.txt", "modified", false)?;
+    let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME"))?;
+    cmd.current_dir(repo.path())
+        .arg("status")
+        .assert()
+        .success()
+        .stdout(r#" M 1.txt
+ M a/2.txt
+"#);
+    Ok(())
+}
+
+#[test]
+fn reports_files_with_modified_contents_but_same_size() -> Result<(), Box<std::error::Error>> {
+    let repo = prepare_repo()?;
+    prepare_commits(&repo, vec!["1.txt", "a/2.txt", "a/b/3.txt"])?;
+    write_file(&repo, "1.txt", "hello", false)?;
+    let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME"))?;
+    cmd.current_dir(repo.path())
+        .arg("status")
+        .assert()
+        .success()
+        .stdout(r#" M 1.txt
+"#);
+    Ok(())
+}
+
+#[test]
+fn reports_files_with_modified_mode() -> Result<(), Box<std::error::Error>> {
+    let repo = prepare_repo()?;
+    prepare_commits(&repo, vec!["1.txt", "a/2.txt", "a/b/3.txt"])?;
+    make_executable(&repo, "1.txt")?;
+    let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME"))?;
+    cmd.current_dir(repo.path())
+        .arg("status")
+        .assert()
+        .success()
+        .stdout(r#" M 1.txt
+"#);
     Ok(())
 }
 

@@ -3,6 +3,25 @@ use crate::workspace::Workspace;
 use crate::{index, workspace, BoxResult};
 use clap::ArgMatches;
 use std::path::{PathBuf, Path};
+use std::collections::BTreeMap;
+use std::fs::Metadata;
+use crate::database::{Blob, Storable};
+use core::fmt;
+use std::fmt::Formatter;
+
+enum Status {
+    Deleted,
+    Modified,
+}
+
+impl fmt::Display for Status {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}", match self {
+            Status::Deleted => "D",
+            Status::Modified => "M",
+        })
+    }
+}
 
 fn trackable_file(
     workspace: &Workspace,
@@ -26,12 +45,17 @@ fn scan_workspace(
     workspace: &Workspace,
     index: &Index,
     path: Option<PathBuf>,
-) -> BoxResult<Vec<String>> {
+) -> BoxResult<(Vec<String>, BTreeMap<PathBuf, Metadata>)> {
     let mut untracked = Vec::new();
+    let mut stats = BTreeMap::new();
     for (file, stat) in workspace.list_dir(path)? {
         if index.has_entry(file.to_str().unwrap()) {
             if stat.is_dir() {
-                untracked.append(&mut scan_workspace(workspace, index, Some(file))?);
+                let (mut u, s) = scan_workspace(workspace, index, Some(file))?;
+                untracked.append(&mut u);
+                stats.extend(s);
+            } else {
+                stats.insert(file, stat);
             }
         } else if trackable_file(workspace, index, file.as_path(), stat.clone()) {
             let mut file = file.to_str().unwrap().to_owned();
@@ -39,21 +63,50 @@ fn scan_workspace(
             untracked.push(file);
         }
     }
-    Ok(untracked)
+    Ok((untracked, stats))
+}
+
+
+fn detect_changes(workspace: Workspace, index: &mut Index, stats: BTreeMap<PathBuf, Metadata>) -> BoxResult<BTreeMap<String, Status>> {
+    let mut changed = BTreeMap::new();
+    for entry in index.entries() {
+        let name = entry.path.to_str().unwrap().to_string();
+        let stat = stats.get(&entry.path);
+        if stat.is_none() {
+            changed.insert(name, Status::Deleted);
+            continue;
+        }
+        if entry.stat_match(stat) {
+            if entry.stat_times_match(stat) { continue; }
+            let data = workspace.read_file(&entry.path)?;
+            let blob = Blob::new(data);
+            if entry.oid == blob.oid() {
+                index.add(&entry.path, blob.oid().as_ref(), stat.unwrap().clone());
+                continue;
+            }
+        }
+        changed.insert(name, Status::Modified);
+    }
+    Ok(changed)
 }
 
 pub fn exec(_matches: &ArgMatches) -> BoxResult<()> {
     let root = std::path::Path::new(".");
 
     let workspace = workspace::Workspace::new(root);
-    let index = index::Index::from(root.join(".git/index"))?;
+    let mut index = index::Index::from(root.join(".git/index"))?;
 
-    let mut files = scan_workspace(&workspace, &index, None)?;
+    let (mut untracked, stats) = scan_workspace(&workspace, &index, None)?;
 
-    files.sort();
-    for file in files {
+    for (file, status) in detect_changes(workspace, &mut index, stats)? {
+        println!(" {} {}", status, file);
+    }
+
+    untracked.sort();
+    for file in untracked {
         println!("?? {}", file);
     }
-    index.release_lock()?;
+    index.write_updates()?;
     Ok(())
 }
+
