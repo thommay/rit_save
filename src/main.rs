@@ -10,6 +10,7 @@ use clap::{Arg, SubCommand};
 use std::io::Read;
 
 mod author;
+mod commands;
 mod commit;
 mod database;
 mod index;
@@ -18,7 +19,6 @@ mod refs;
 mod tree;
 mod utilities;
 mod workspace;
-mod commands;
 
 type BoxResult<T> = Result<T, Box<std::error::Error>>;
 
@@ -45,9 +45,7 @@ fn main() -> BoxResult<()> {
         .subcommand(
             SubCommand::with_name("init").arg(Arg::with_name("PATH").required(true).index(1)),
         )
-        .subcommand(
-            SubCommand::with_name("status")
-        )
+        .subcommand(SubCommand::with_name("status"))
         .get_matches();
 
     match app.subcommand() {
@@ -145,5 +143,3 @@ fn git_init(matches: &ArgMatches) -> BoxResult<()> {
     std::fs::create_dir_all(target.join("refs"))?;
     Ok(())
 }
-
-

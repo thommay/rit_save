@@ -1,9 +1,9 @@
 use failure::Error;
+use std::collections::BTreeMap;
 use std::fs::{File, Metadata};
 use std::io;
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::collections::BTreeMap;
 
 const IGNORED: [&str; 6] = [".", "..", ".git", "target", ".idea", "cmake-build-debug"];
 

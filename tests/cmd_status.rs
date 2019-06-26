@@ -1,10 +1,9 @@
 use assert_cmd::prelude::*;
 use std::fs::File;
 use std::io::Write;
+use std::os::unix::fs::PermissionsExt;
 use std::process::Command;
 use tempdir::TempDir;
-use std::os::unix::fs::PermissionsExt;
-
 
 fn prepare_repo() -> Result<TempDir, std::io::Error> {
     let tmp = TempDir::new("rit")?;
@@ -34,13 +33,13 @@ fn write_file(repo: &TempDir, path: &str, content: &str, add: bool) -> Result<()
     Ok(())
 }
 
-fn mkdir(repo: &TempDir, path: &str)  -> Result<(), std::io::Error> {
+fn mkdir(repo: &TempDir, path: &str) -> Result<(), std::io::Error> {
     let dn = repo.path().join(path);
     std::fs::create_dir_all(dn)?;
     Ok(())
 }
 
-fn make_executable(repo: &TempDir, path: &str)  -> Result<(), std::io::Error> {
+fn make_executable(repo: &TempDir, path: &str) -> Result<(), std::io::Error> {
     let dn = repo.path().join(path);
     let perms = std::fs::Permissions::from_mode(0o0755);
     std::fs::set_permissions(dn, perms)?;
@@ -101,8 +100,10 @@ fn reports_deleted_files() -> Result<(), Box<std::error::Error>> {
         .arg("status")
         .assert()
         .success()
-        .stdout(r#" D 1.txt
-"#);
+        .stdout(
+            r#" D 1.txt
+"#,
+        );
     Ok(())
 }
 
@@ -116,9 +117,11 @@ fn reports_files_in_deleted_dir() -> Result<(), Box<std::error::Error>> {
         .arg("status")
         .assert()
         .success()
-        .stdout(r#" D a/2.txt
+        .stdout(
+            r#" D a/2.txt
  D a/b/3.txt
-"#);
+"#,
+        );
     Ok(())
 }
 
@@ -133,9 +136,11 @@ fn reports_files_with_modified_contents() -> Result<(), Box<std::error::Error>> 
         .arg("status")
         .assert()
         .success()
-        .stdout(r#" M 1.txt
+        .stdout(
+            r#" M 1.txt
  M a/2.txt
-"#);
+"#,
+        );
     Ok(())
 }
 
@@ -149,8 +154,10 @@ fn reports_files_with_modified_contents_but_same_size() -> Result<(), Box<std::e
         .arg("status")
         .assert()
         .success()
-        .stdout(r#" M 1.txt
-"#);
+        .stdout(
+            r#" M 1.txt
+"#,
+        );
     Ok(())
 }
 
@@ -164,8 +171,10 @@ fn reports_files_with_modified_mode() -> Result<(), Box<std::error::Error>> {
         .arg("status")
         .assert()
         .success()
-        .stdout(r#" M 1.txt
-"#);
+        .stdout(
+            r#" M 1.txt
+"#,
+        );
     Ok(())
 }
 

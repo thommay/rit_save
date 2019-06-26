@@ -34,7 +34,8 @@ impl Lockfile {
         let file = std::fs::OpenOptions::new()
             .write(true)
             .create_new(true)
-            .open(&self.lock).expect("Failed to get lock file");
+            .open(&self.lock)
+            .expect("Failed to get lock file");
         self.file = RefCell::new(Some(file));
         Ok(self)
     }

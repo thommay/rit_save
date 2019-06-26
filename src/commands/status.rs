@@ -1,13 +1,13 @@
+use crate::database::{Blob, Storable};
 use crate::index::Index;
 use crate::workspace::Workspace;
 use crate::{index, workspace, BoxResult};
 use clap::ArgMatches;
-use std::path::{PathBuf, Path};
-use std::collections::BTreeMap;
-use std::fs::Metadata;
-use crate::database::{Blob, Storable};
 use core::fmt;
+use std::collections::BTreeMap;
 use std::fmt::Formatter;
+use std::fs::Metadata;
+use std::path::{Path, PathBuf};
 
 enum Status {
     Deleted,
@@ -16,10 +16,14 @@ enum Status {
 
 impl fmt::Display for Status {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}", match self {
-            Status::Deleted => "D",
-            Status::Modified => "M",
-        })
+        write!(
+            f,
+            "{}",
+            match self {
+                Status::Deleted => "D",
+                Status::Modified => "M",
+            }
+        )
     }
 }
 
@@ -29,14 +33,22 @@ fn trackable_file(
     path: &Path,
     stat: std::fs::Metadata,
 ) -> bool {
-    if stat.is_file() { return !index.has_entry(path.to_str().unwrap()); }
-    if !stat.is_dir() { return false; }
+    if stat.is_file() {
+        return !index.has_entry(path.to_str().unwrap());
+    }
+    if !stat.is_dir() {
+        return false;
+    }
 
     let items = workspace.list_dir(Some(path.to_path_buf())).unwrap();
 
     for (path, stat) in items {
-        if !stat.is_file() && !stat.is_dir() { continue; }
-        if trackable_file(&workspace, &index, path.as_path(), stat) { return true; }
+        if !stat.is_file() && !stat.is_dir() {
+            continue;
+        }
+        if trackable_file(&workspace, &index, path.as_path(), stat) {
+            return true;
+        }
     }
     false
 }
@@ -59,15 +71,20 @@ fn scan_workspace(
             }
         } else if trackable_file(workspace, index, file.as_path(), stat.clone()) {
             let mut file = file.to_str().unwrap().to_owned();
-            if stat.is_dir() { file.push('/') };
+            if stat.is_dir() {
+                file.push('/');
+            }
             untracked.push(file);
         }
     }
     Ok((untracked, stats))
 }
 
-
-fn detect_changes(workspace: Workspace, index: &mut Index, stats: BTreeMap<PathBuf, Metadata>) -> BoxResult<BTreeMap<String, Status>> {
+fn detect_changes(
+    workspace: Workspace,
+    index: &mut Index,
+    stats: BTreeMap<PathBuf, Metadata>,
+) -> BoxResult<BTreeMap<String, Status>> {
     let mut changed = BTreeMap::new();
     for entry in index.entries() {
         let name = entry.path.to_str().unwrap().to_string();
@@ -77,7 +94,9 @@ fn detect_changes(workspace: Workspace, index: &mut Index, stats: BTreeMap<PathB
             continue;
         }
         if entry.stat_match(stat) {
-            if entry.stat_times_match(stat) { continue; }
+            if entry.stat_times_match(stat) {
+                continue;
+            }
             let data = workspace.read_file(&entry.path)?;
             let blob = Blob::new(data);
             if entry.oid == blob.oid() {
@@ -109,4 +128,3 @@ pub fn exec(_matches: &ArgMatches) -> BoxResult<()> {
     index.write_updates()?;
     Ok(())
 }
-
