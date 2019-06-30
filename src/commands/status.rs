@@ -6,13 +6,13 @@ use crate::tree::TreeEntry;
 use crate::workspace::Workspace;
 use crate::{commit, database, index, refs, tree, workspace, BoxResult};
 use clap::ArgMatches;
+use colored::*;
 use core::fmt;
 use failure::Error;
-use std::collections::{BTreeMap};
+use std::collections::BTreeMap;
 use std::fmt::Formatter;
 use std::fs::Metadata;
 use std::path::{Path, PathBuf};
-use colored::*;
 
 #[derive(Clone, Copy, PartialEq)]
 enum Changed {
@@ -114,7 +114,7 @@ impl CmdStatus {
         Ok(())
     }
 
-    fn print_long_format(&self){
+    fn print_long_format(&self) {
         let index = self.index_changes.clone();
         let workspace = self.workspace_changes.clone();
         let untracked = self.untracked.clone();
@@ -134,7 +134,9 @@ impl CmdStatus {
     }
 
     fn print_status(&self) {
-        if !self.index_changes.is_empty() { return; }
+        if !self.index_changes.is_empty() {
+            return;
+        }
         if !self.workspace_changes.is_empty() {
             println!("no changes added to commit");
         } else if !self.untracked.is_empty() {
@@ -197,7 +199,7 @@ impl CmdStatus {
             }
         }
         for file in deleted {
-            self.record_change(file, Changed::Index,  Status::Deleted);
+            self.record_change(file, Changed::Index, Status::Deleted);
         }
     }
 
@@ -209,7 +211,7 @@ impl CmdStatus {
                 self.record_change(name, Changed::Index, Status::Modified);
             }
         } else {
-            self.record_change(name,Changed::Index,  Status::Added);
+            self.record_change(name, Changed::Index, Status::Added);
         }
         Ok(())
     }
@@ -282,14 +284,15 @@ impl CmdStatus {
     }
 
     fn status_for(&self, file: &str) -> String {
-       format!("{}{}",
-               self.index_changes.get(file).unwrap_or(&Status::None),
-               self.workspace_changes.get(file).unwrap_or(&Status::None)
-       )
+        format!(
+            "{}{}",
+            self.index_changes.get(file).unwrap_or(&Status::None),
+            self.workspace_changes.get(file).unwrap_or(&Status::None)
+        )
     }
 }
 
-fn long_format(status: &Status) -> String {
+fn long_format(status: Status) -> String {
     match status {
         Status::Deleted => String::from("deleted:"),
         Status::Modified => String::from("modified:"),
@@ -303,10 +306,9 @@ fn print_changes(msg: &str, index: BTreeMap<String, Status>, colour: &str) {
         println!("{}", msg);
         println!();
         for (path, status) in index {
-            let item = format!("{:12}{}", long_format(&status), path).color(colour);
+            let item = format!("{:12}{}", long_format(status), path).color(colour);
             println!("\t{}", item);
         }
         println!();
     }
 }
-
