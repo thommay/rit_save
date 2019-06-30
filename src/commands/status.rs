@@ -142,7 +142,7 @@ impl CmdStatus {
         } else if !self.untracked.is_empty() {
             println!("nothing added to commit but untracked files present");
         } else {
-            println!("noting to commit, working tree clean");
+            println!("nothing to commit, working tree clean");
         }
     }
 
