@@ -1,27 +1,28 @@
 use crate::database::Storable;
+use crate::database::marker::Marker;
 use crate::index::entry::Entry;
 use crate::utilities::pack_data;
 use indexmap::IndexMap;
-use std::io::Write;
+use std::io::{Write, BufRead, Read};
 use std::path::Component;
+use failure::Error;
 
 #[derive(Clone, Debug)]
 pub struct Tree {
     pub entries: IndexMap<String, TreeEntry>,
-    pub name: String,
 }
 
 #[derive(Clone, Debug)]
 pub enum TreeEntry {
     Entry(Entry),
     Tree(Tree),
+    Marker(Marker),
 }
 
 impl Tree {
-    pub fn build(entries: Vec<Entry>, name: &str) -> Self {
+    pub fn build(entries: Vec<Entry>) -> Self {
         let mut root = Tree {
             entries: IndexMap::new(),
-            name: String::from(name),
         };
         for entry in entries {
             let mut parts: Vec<Component> = entry.path.components().collect();
@@ -45,7 +46,6 @@ impl Tree {
                         .entry(first.into())
                         .or_insert(TreeEntry::Tree(Tree {
                             entries: IndexMap::new(),
-                            name: first.into(),
                         }))
                 {
                     tree.add_entry(rest.to_vec(), name, entry);
@@ -72,6 +72,32 @@ impl Tree {
         }
         f(self.clone());
     }
+
+    pub fn from(data: Vec<u8>) -> Result<Self, Error> {
+        let mut data = std::io::Cursor::new(data);
+        let len = data.get_ref().len();
+        let mut entries = IndexMap::new();
+        while (data.position() as usize) < len - 1 {
+            let mut mode = vec![];
+            data.read_until(b' ', &mut mode)?;
+            let mode = String::from_utf8(mode)?;
+            let mode = mode.trim_end_matches(' ');
+
+            let mut name = vec![];
+            data.read_until(b'\0', &mut name)?;
+            let name = String::from_utf8(name)?;
+            let name = name.trim_end_matches('\0');
+
+
+            let mut oid = [0; 20];
+            data.read_exact(&mut oid)?;
+            let oid = hex::encode(oid);
+
+            let marker = Marker::new(name.clone(), oid, mode);
+            entries.insert(String::from(name), TreeEntry::Marker(marker));
+        }
+        Ok(Tree{ entries })
+    }
 }
 
 impl Storable for Tree {
@@ -85,6 +111,7 @@ impl Storable for Tree {
                     pack_data(mode.as_ref(), name.as_ref(), oid.as_ref()).unwrap()
                 }
                 TreeEntry::Entry(e) => e.metadata(),
+                TreeEntry::Marker(m) => m.metadata(),
             };
             data.write_all(&ret).unwrap();
         }

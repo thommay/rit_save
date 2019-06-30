@@ -1,26 +1,18 @@
-use crate::author::Author;
-use crate::commit::Commit;
-use crate::database::{Blob, Storable};
-use crate::tree::Tree;
-use crate::utilities::stat_file;
+use rit::author::Author;
+use rit::commit::Commit;
+use rit::database::{Blob, Database, Storable};
+use rit::tree::Tree;
+use rit::utilities::stat_file;
 
 use clap::App;
 use clap::ArgMatches;
 use clap::{Arg, SubCommand};
 use std::io::Read;
-
-mod author;
-mod commands;
-mod commit;
-mod database;
-mod index;
-mod lockfile;
-mod refs;
-mod tree;
-mod utilities;
-mod workspace;
-
-type BoxResult<T> = Result<T, Box<std::error::Error>>;
+use rit::workspace::Workspace;
+use rit::BoxResult;
+use rit::index::Index;
+use rit::refs::Refs;
+use rit::commands::status::CmdStatus;
 
 fn main() -> BoxResult<()> {
     let app = App::new("jit")
@@ -46,13 +38,15 @@ fn main() -> BoxResult<()> {
             SubCommand::with_name("init").arg(Arg::with_name("PATH").required(true).index(1)),
         )
         .subcommand(SubCommand::with_name("status"))
+        .subcommand(SubCommand::with_name("show_head"))
         .get_matches();
 
     match app.subcommand() {
         ("add", Some(m)) => git_add(m),
         ("commit", Some(m)) => git_commit(m),
         ("init", Some(m)) => git_init(m),
-        ("status", Some(m)) => commands::status::exec(m),
+        ("show_head", Some(_)) => show_head(),
+        ("status", Some(m)) => CmdStatus::new(".")?.exec(m),
         _ => {
             println!("unrecognised command");
             Err(From::from("unrecognised command"))
@@ -63,9 +57,9 @@ fn main() -> BoxResult<()> {
 fn git_add(matches: &ArgMatches) -> BoxResult<()> {
     let root = std::path::Path::new(".");
 
-    let workspace = workspace::Workspace::new(root);
-    let db = database::Database::new(root.join(".git/objects"));
-    let mut index = index::Index::from(root.join(".git/index"))?;
+    let workspace = Workspace::new(root);
+    let db = Database::new(root.join(".git/objects"));
+    let mut index = Index::from(root.join(".git/index"))?;
 
     for p in matches
         .values_of("PATH")
@@ -97,11 +91,11 @@ fn git_add(matches: &ArgMatches) -> BoxResult<()> {
 fn git_commit(matches: &ArgMatches) -> BoxResult<()> {
     let root = std::path::Path::new(".");
 
-    let db = database::Database::new(root.join(".git/objects"));
-    let refs = refs::Refs::new(root.join(".git"));
-    let index = index::Index::from(root.join(".git/index"))?;
+    let db = Database::new(root.join(".git/objects"));
+    let refs = Refs::new(root.join(".git"));
+    let index = Index::from(root.join(".git/index"))?;
 
-    let root = Tree::build(index.entries(), ".");
+    let root = Tree::build(index.entries());
     root.traverse(&|x| db.store(x).unwrap());
 
     let name = std::env::var("GIT_AUTHOR_NAME")?;
@@ -141,5 +135,26 @@ fn git_init(matches: &ArgMatches) -> BoxResult<()> {
     let target = path.join(".git");
     std::fs::create_dir_all(target.join("objects"))?;
     std::fs::create_dir_all(target.join("refs"))?;
+    Ok(())
+}
+
+fn show_head() -> BoxResult<()> {
+    let root = std::path::Path::new(".");
+
+    let db = Database::new(root.join(".git/objects"));
+    let refs = Refs::new(root.join(".git"));
+    let head = refs.get_head();
+    if let Some(head) = head {
+        let (kind, _, data) = db.read_object(head.as_ref())?;
+        if kind == "commit" {
+            let commit = Commit::from(data)?;
+            let tree = commit.tree;
+            let (kind, _, data) = db.read_object(tree.as_ref())?;
+            if kind == "tree" {
+                let tree = Tree::from(data)?;
+                dbg!(&tree);
+            }
+        }
+    }
     Ok(())
 }

@@ -124,8 +124,8 @@ impl Entry {
 
     pub fn stat_match(&self, stat: Option<&Metadata>) -> bool {
         if let Some(stat) = stat {
-            (is_executable(stat.mode()) == is_executable(self.mode))
-                && (self.size == stat.size() as u32)
+            is_executable(stat.mode()) == is_executable(self.mode)
+                && self.size == stat.size() as u32
         } else {
             return false;
         }

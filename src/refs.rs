@@ -19,6 +19,7 @@ impl Refs {
         if let Ok(mut fh) = OpenOptions::new().read(true).open(self.head_path()) {
             let mut ret = String::new();
             fh.read_to_string(&mut ret).unwrap();
+            let ret = ret.trim_end_matches('\n').to_owned();
             Some(ret)
         } else {
             None
