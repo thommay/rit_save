@@ -1,8 +1,8 @@
 use crate::author::Author;
 use crate::database::Storable;
-use std::fmt::Write;
 use failure::Error;
 use std::collections::HashMap;
+use std::fmt::Write;
 
 #[derive(Debug)]
 pub struct Commit {
@@ -32,7 +32,9 @@ impl Commit {
             let line = data.next();
             if let Some(line) = line {
                 let line = line.trim();
-                if line == "" { break }
+                if line == "" {
+                    break;
+                }
                 let mut matches = line.split_whitespace();
                 let key = matches.next().unwrap();
                 let val = matches.collect::<Vec<&str>>().join(" ");
@@ -40,10 +42,22 @@ impl Commit {
             }
         }
         let message = data.collect::<Vec<&str>>().join("\n");
-        let parent =  headers.get("parent").map_or(None, |x| Some(x.to_string()));
-        let tree = headers.get("tree").expect("failed to read tree from commit").to_string();
-        let author = headers.get("author").map(|x| Author::from(x)).expect("failed to read author from commit").unwrap();
-        Ok(Self { parent, tree, author, message })
+        let parent = headers.get("parent").and_then(|x| Some(x.to_string()));
+        let tree = headers
+            .get("tree")
+            .expect("failed to read tree from commit")
+            .to_string();
+        let author = headers
+            .get("author")
+            .map(|x| Author::from(x))
+            .expect("failed to read author from commit")
+            .unwrap();
+        Ok(Self {
+            parent,
+            tree,
+            author,
+            message,
+        })
     }
 }
 
@@ -51,7 +65,7 @@ impl Storable for Commit {
     fn serialize(&self) -> Vec<u8> {
         let mut content = format!("tree {}\n", self.tree);
         match &self.parent {
-            Some(p) => write!(&mut content, "parent {}\n", p).unwrap(),
+            Some(p) => writeln!(&mut content, "parent {}", p).unwrap(),
             None => {}
         }
         write!(

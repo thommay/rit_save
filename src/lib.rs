@@ -10,4 +10,3 @@ pub mod utilities;
 pub mod workspace;
 
 pub type BoxResult<T> = Result<T, Box<std::error::Error>>;
-

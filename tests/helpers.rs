@@ -1,9 +1,9 @@
-use tempdir::TempDir;
-use std::process::Command;
-use std::fs::File;
 use assert_cmd::prelude::*;
+use std::fs::File;
 use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
+use std::process::Command;
+use tempdir::TempDir;
 
 pub fn prepare_repo() -> Result<TempDir, std::io::Error> {
     let tmp = TempDir::new("rit")?;
@@ -16,7 +16,12 @@ pub fn prepare_repo() -> Result<TempDir, std::io::Error> {
     Ok(tmp)
 }
 
-pub fn write_file(repo: &TempDir, path: &str, content: &str, add: bool) -> Result<(), std::io::Error> {
+pub fn write_file(
+    repo: &TempDir,
+    path: &str,
+    content: &str,
+    add: bool,
+) -> Result<(), std::io::Error> {
     let new_file = repo.path().join(path);
     let dn = new_file.parent().unwrap();
     std::fs::create_dir_all(dn)?;

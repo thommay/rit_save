@@ -1,11 +1,11 @@
-use crate::database::Storable;
 use crate::database::marker::Marker;
+use crate::database::Storable;
 use crate::index::entry::Entry;
 use crate::utilities::pack_data;
-use indexmap::IndexMap;
-use std::io::{Write, BufRead, Read};
-use std::path::Component;
 use failure::Error;
+use indexmap::IndexMap;
+use std::io::{BufRead, Read, Write};
+use std::path::Component;
 
 #[derive(Clone, Debug)]
 pub struct Tree {
@@ -88,15 +88,14 @@ impl Tree {
             let name = String::from_utf8(name)?;
             let name = name.trim_end_matches('\0');
 
-
             let mut oid = [0; 20];
             data.read_exact(&mut oid)?;
             let oid = hex::encode(oid);
 
-            let marker = Marker::new(name.clone(), oid, mode);
+            let marker = Marker::new(name, oid, mode);
             entries.insert(String::from(name), TreeEntry::Marker(marker));
         }
-        Ok(Tree{ entries })
+        Ok(Tree { entries })
     }
 }
 

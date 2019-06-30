@@ -7,12 +7,12 @@ use rit::utilities::stat_file;
 use clap::App;
 use clap::ArgMatches;
 use clap::{Arg, SubCommand};
-use std::io::Read;
-use rit::workspace::Workspace;
-use rit::BoxResult;
+use rit::commands::status::CmdStatus;
 use rit::index::Index;
 use rit::refs::Refs;
-use rit::commands::status::CmdStatus;
+use rit::workspace::Workspace;
+use rit::BoxResult;
+use std::io::Read;
 
 fn main() -> BoxResult<()> {
     let app = App::new("jit")

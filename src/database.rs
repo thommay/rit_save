@@ -1,11 +1,11 @@
+use failure::format_err;
 use failure::Error;
+use flate2::bufread::ZlibDecoder;
 use flate2::write::ZlibEncoder;
 use flate2::Compression;
 use std::fs::OpenOptions;
-use std::io::{Write, BufReader, Read, BufRead};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
-use flate2::bufread::ZlibDecoder;
-use failure::format_err;
 
 pub mod marker;
 
@@ -81,7 +81,9 @@ impl Database {
 
         let mut size = vec![];
         cursor.read_until(b'\0', &mut size)?;
-        let size = std::str::from_utf8(size.as_ref())?.trim_end_matches('\0').parse::<u64>()?;
+        let size = std::str::from_utf8(size.as_ref())?
+            .trim_end_matches('\0')
+            .parse::<u64>()?;
 
         let mut out = vec![];
         cursor.read_to_end(&mut out)?;

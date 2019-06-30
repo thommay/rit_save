@@ -1,5 +1,5 @@
-use std::path::{Path, PathBuf};
 use crate::utilities::pack_data;
+use std::path::{Path, PathBuf};
 
 #[derive(Clone, Debug)]
 pub struct Marker {
@@ -16,7 +16,11 @@ pub enum Kind {
 
 impl Marker {
     pub fn new<N: AsRef<Path>, O: Into<String>, M: Into<String>>(name: N, oid: O, mode: M) -> Self {
-        Self { name: name.as_ref().to_path_buf(), oid: oid.into(), mode: mode.into() }
+        Self {
+            name: name.as_ref().to_path_buf(),
+            oid: oid.into(),
+            mode: mode.into(),
+        }
     }
 
     pub fn kind(&self) -> Kind {

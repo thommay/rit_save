@@ -1,7 +1,10 @@
+use crate::database::marker::{Kind, Marker};
 use crate::database::{Blob, Storable};
+use crate::index::entry::Entry;
 use crate::index::Index;
+use crate::tree::TreeEntry;
 use crate::workspace::Workspace;
-use crate::{index, workspace, BoxResult, database, refs, commit, tree};
+use crate::{commit, database, index, refs, tree, workspace, BoxResult};
 use clap::ArgMatches;
 use core::fmt;
 use failure::Error;
@@ -9,9 +12,6 @@ use std::collections::BTreeMap;
 use std::fmt::Formatter;
 use std::fs::Metadata;
 use std::path::{Path, PathBuf};
-use crate::database::marker::{Marker, Kind};
-use crate::tree::TreeEntry;
-use crate::index::entry::Entry;
 
 #[derive(Clone, Copy, PartialEq)]
 enum Status {
@@ -35,7 +35,6 @@ impl fmt::Display for Status {
         )
     }
 }
-
 
 pub struct CmdStatus {
     workspace: Workspace,
@@ -61,7 +60,16 @@ impl CmdStatus {
         let changes = BTreeMap::new();
         let stats = BTreeMap::new();
         let tree = BTreeMap::new();
-        Ok(CmdStatus { workspace, index, database, refs, changes, stats, untracked, tree })
+        Ok(CmdStatus {
+            workspace,
+            index,
+            database,
+            refs,
+            changes,
+            stats,
+            untracked,
+            tree,
+        })
     }
 
     pub fn exec(mut self, _matches: &ArgMatches) -> BoxResult<()> {
@@ -73,7 +81,6 @@ impl CmdStatus {
             self.read_tree(head.as_ref(), "".into())?;
         }
 
-
         for entry in self.index.entries() {
             self.check_index_against_workspace(&entry)?;
             if has_tree {
@@ -82,7 +89,7 @@ impl CmdStatus {
             }
         }
 
-        for (file, status) in  self.changes {
+        for (file, status) in self.changes {
             println!("{} {}", status_for(status), file);
         }
 
@@ -120,7 +127,7 @@ impl CmdStatus {
         Ok(())
     }
 
-    fn check_deleted_tree_files(&mut self){
+    fn check_deleted_tree_files(&mut self) {
         let mut deleted = vec![];
         for path in self.tree.keys() {
             let p = path.to_str().unwrap();
@@ -160,7 +167,8 @@ impl CmdStatus {
             let data = self.workspace.read_file(&entry.path)?;
             let blob = Blob::new(data);
             if entry.oid == blob.oid() {
-                self.index.add(&entry.path, blob.oid().as_ref(), stat.unwrap().clone());
+                self.index
+                    .add(&entry.path, blob.oid().as_ref(), stat.unwrap().clone());
                 return Ok(());
             }
         }
@@ -189,7 +197,7 @@ impl CmdStatus {
         false
     }
 
-    fn read_tree(&mut self, oid: &str, path: PathBuf) -> BoxResult<()>{
+    fn read_tree(&mut self, oid: &str, path: PathBuf) -> BoxResult<()> {
         let (kind, _size, data) = self.database.read_object(oid)?;
         if kind == "tree" {
             let tree = tree::Tree::from(data)?;
@@ -197,7 +205,9 @@ impl CmdStatus {
                 let p = path.join(name);
                 if let TreeEntry::Marker(entry) = entry {
                     match entry.kind() {
-                        Kind::Entry => { self.tree.insert(p, entry); },
+                        Kind::Entry => {
+                            self.tree.insert(p, entry);
+                        }
                         Kind::Tree => self.read_tree(entry.oid.as_ref(), p)?,
                     };
                 }
@@ -230,4 +240,3 @@ fn status_for(status: Vec<Status>) -> String {
     };
     format!("{}{}", left, right)
 }
-
