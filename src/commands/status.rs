@@ -8,18 +8,24 @@ use crate::{commit, database, index, refs, tree, workspace, BoxResult};
 use clap::ArgMatches;
 use core::fmt;
 use failure::Error;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap};
 use std::fmt::Formatter;
 use std::fs::Metadata;
 use std::path::{Path, PathBuf};
+use colored::*;
+
+#[derive(Clone, Copy, PartialEq)]
+enum Changed {
+    Index,
+    Workspace,
+}
 
 #[derive(Clone, Copy, PartialEq)]
 enum Status {
     Deleted,
     Modified,
-    IndexAdded,
-    IndexDeleted,
-    IndexModified,
+    Added,
+    None,
 }
 
 impl fmt::Display for Status {
@@ -28,9 +34,10 @@ impl fmt::Display for Status {
             f,
             "{}",
             match self {
-                Status::Deleted | Status::IndexDeleted => "D",
-                Status::Modified | Status::IndexModified => "M",
-                Status::IndexAdded => "A",
+                Status::Deleted => "D",
+                Status::Modified => "M",
+                Status::Added => "A",
+                Status::None => " ",
             }
         )
     }
@@ -41,7 +48,9 @@ pub struct CmdStatus {
     index: Index,
     database: database::Database,
     refs: refs::Refs,
-    changes: BTreeMap<String, Vec<Status>>,
+    index_changes: BTreeMap<String, Status>,
+    workspace_changes: BTreeMap<String, Status>,
+    changed: Vec<String>,
     untracked: Vec<String>,
     stats: BTreeMap<PathBuf, Metadata>,
     tree: BTreeMap<PathBuf, Marker>,
@@ -57,7 +66,9 @@ impl CmdStatus {
         let refs = refs::Refs::new(root.join(".git"));
 
         let untracked = vec![];
-        let changes = BTreeMap::new();
+        let changed = vec![];
+        let index_changes = BTreeMap::new();
+        let workspace_changes = BTreeMap::new();
         let stats = BTreeMap::new();
         let tree = BTreeMap::new();
         Ok(CmdStatus {
@@ -65,14 +76,16 @@ impl CmdStatus {
             index,
             database,
             refs,
-            changes,
+            changed,
+            index_changes,
+            workspace_changes,
             stats,
             untracked,
             tree,
         })
     }
 
-    pub fn exec(mut self, _matches: &ArgMatches) -> BoxResult<()> {
+    pub fn exec(mut self, matches: &ArgMatches) -> BoxResult<()> {
         self.scan_workspace(None)?;
 
         let mut has_tree = false;
@@ -89,23 +102,71 @@ impl CmdStatus {
             }
         }
 
-        for (file, status) in self.changes {
-            println!("{} {}", status_for(status), file);
-        }
-
         self.untracked.sort();
-        for file in self.untracked {
-            println!("?? {}", file);
+        self.untracked.dedup();
+
+        if matches.is_present("porcelain") {
+            self.print_porcelain();
+        } else {
+            self.print_long_format();
         }
         self.index.write_updates()?;
         Ok(())
     }
 
-    fn record_change(&mut self, name: String, status: Status) {
-        self.changes
-            .entry(name)
-            .and_modify(|e| e.push(status))
-            .or_insert_with(|| vec![status]);
+    fn print_long_format(&self){
+        let index = self.index_changes.clone();
+        let workspace = self.workspace_changes.clone();
+        let untracked = self.untracked.clone();
+
+        print_changes("Changes to be committed", index, "green");
+        print_changes("Changes not staged for commit", workspace, "red");
+
+        if !untracked.is_empty() {
+            println!("Untracked files");
+            println!();
+            for file in untracked {
+                println!("\t{}", file.red());
+            }
+            println!();
+        }
+        self.print_status();
+    }
+
+    fn print_status(&self) {
+        if !self.index_changes.is_empty() { return; }
+        if !self.workspace_changes.is_empty() {
+            println!("no changes added to commit");
+        } else if !self.untracked.is_empty() {
+            println!("nothing added to commit but untracked files present");
+        } else {
+            println!("noting to commit, working tree clean");
+        }
+    }
+
+    fn print_porcelain(&self) {
+        let mut changed = self.changed.clone();
+        changed.sort();
+        changed.dedup();
+
+        let untracked = self.untracked.clone();
+
+        for file in changed {
+            println!("{} {}", self.status_for(&file), file);
+        }
+
+        for file in untracked {
+            println!("?? {}", file);
+        }
+    }
+
+    fn record_change(&mut self, name: String, target: Changed, status: Status) {
+        self.changed.push(name.clone());
+        if target == Changed::Workspace {
+            self.workspace_changes.insert(name, status);
+        } else {
+            self.index_changes.insert(name, status);
+        }
     }
 
     fn scan_workspace(&mut self, path: Option<PathBuf>) -> BoxResult<()> {
@@ -136,7 +197,7 @@ impl CmdStatus {
             }
         }
         for file in deleted {
-            self.record_change(file, Status::IndexDeleted);
+            self.record_change(file, Changed::Index,  Status::Deleted);
         }
     }
 
@@ -145,10 +206,10 @@ impl CmdStatus {
         let item = self.tree.get(&entry.path);
         if let Some(item) = item {
             if item.oid != entry.oid || item.mode != entry.mode() {
-                self.record_change(name, Status::IndexModified);
+                self.record_change(name, Changed::Index, Status::Modified);
             }
         } else {
-            self.record_change(name, Status::IndexAdded);
+            self.record_change(name,Changed::Index,  Status::Added);
         }
         Ok(())
     }
@@ -157,7 +218,7 @@ impl CmdStatus {
         let name = entry.path.to_str().unwrap().to_string();
         let stat = self.stats.get(&entry.path);
         if stat.is_none() {
-            self.record_change(name, Status::Deleted);
+            self.record_change(name, Changed::Workspace, Status::Deleted);
             return Ok(());
         }
         if entry.stat_match(stat) {
@@ -172,7 +233,7 @@ impl CmdStatus {
                 return Ok(());
             }
         }
-        self.record_change(name, Status::Modified);
+        self.record_change(name, Changed::Workspace, Status::Modified);
         Ok(())
     }
 
@@ -219,24 +280,33 @@ impl CmdStatus {
         }
         Ok(())
     }
+
+    fn status_for(&self, file: &str) -> String {
+       format!("{}{}",
+               self.index_changes.get(file).unwrap_or(&Status::None),
+               self.workspace_changes.get(file).unwrap_or(&Status::None)
+       )
+    }
 }
 
-fn status_for(status: Vec<Status>) -> String {
-    let left = if status.iter().any(|&n| n == Status::IndexAdded) {
-        "A"
-    } else if status.iter().any(|&n| n == Status::IndexModified) {
-        "M"
-    } else if status.iter().any(|&n| n == Status::IndexDeleted) {
-        "D"
-    } else {
-        " "
-    };
-    let right = if status.iter().any(|&n| n == Status::Deleted) {
-        "D"
-    } else if status.iter().any(|&n| n == Status::Modified) {
-        "M"
-    } else {
-        " "
-    };
-    format!("{}{}", left, right)
+fn long_format(status: &Status) -> String {
+    match status {
+        Status::Deleted => String::from("deleted:"),
+        Status::Modified => String::from("modified:"),
+        Status::Added => String::from("new file:"),
+        Status::None => String::new(),
+    }
 }
+
+fn print_changes(msg: &str, index: BTreeMap<String, Status>, colour: &str) {
+    if !index.is_empty() {
+        println!("{}", msg);
+        println!();
+        for (path, status) in index {
+            let item = format!("{:12}{}", long_format(&status), path).color(colour);
+            println!("\t{}", item);
+        }
+        println!();
+    }
+}
+

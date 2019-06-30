@@ -15,6 +15,7 @@ libc = "0.2"
 indexmap = "*"
 fs2 = "*"
 hex = "*"
+colored = "1.8"
 
 [dev-dependencies]
 lazy_static = "*"

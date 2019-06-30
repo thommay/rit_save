@@ -11,6 +11,7 @@ fn quiet_when_nothing() -> Result<(), Box<std::error::Error>> {
     let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME"))?;
     cmd.current_dir(repo.path())
         .arg("status")
+        .arg("--porcelain")
         .assert()
         .success()
         .stdout("");
@@ -25,6 +26,7 @@ fn reports_deleted_files() -> Result<(), Box<std::error::Error>> {
     let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME"))?;
     cmd.current_dir(repo.path())
         .arg("status")
+        .arg("--porcelain")
         .assert()
         .success()
         .stdout(
@@ -42,6 +44,7 @@ fn reports_files_in_deleted_dir() -> Result<(), Box<std::error::Error>> {
     let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME"))?;
     cmd.current_dir(repo.path())
         .arg("status")
+        .arg("--porcelain")
         .assert()
         .success()
         .stdout(
@@ -61,6 +64,7 @@ fn reports_files_with_modified_contents() -> Result<(), Box<std::error::Error>> 
     let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME"))?;
     cmd.current_dir(repo.path())
         .arg("status")
+        .arg("--porcelain")
         .assert()
         .success()
         .stdout(
@@ -79,6 +83,7 @@ fn reports_files_with_modified_contents_but_same_size() -> Result<(), Box<std::e
     let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME"))?;
     cmd.current_dir(repo.path())
         .arg("status")
+        .arg("--porcelain")
         .assert()
         .success()
         .stdout(
@@ -96,6 +101,7 @@ fn reports_files_with_modified_mode() -> Result<(), Box<std::error::Error>> {
     let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME"))?;
     cmd.current_dir(repo.path())
         .arg("status")
+        .arg("--porcelain")
         .assert()
         .success()
         .stdout(
@@ -113,6 +119,7 @@ fn reports_added_files() -> Result<(), Box<std::error::Error>> {
     let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME"))?;
     cmd.current_dir(repo.path())
         .arg("status")
+        .arg("--porcelain")
         .assert()
         .success()
         .stdout(
@@ -130,6 +137,7 @@ fn reports_added_file_in_untracked_dirs() -> Result<(), Box<std::error::Error>> 
     let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME"))?;
     cmd.current_dir(repo.path())
         .arg("status")
+        .arg("--porcelain")
         .assert()
         .success()
         .stdout(
@@ -148,6 +156,7 @@ fn reports_tracked_files_with_changed_mode() -> Result<(), Box<std::error::Error
     let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME"))?;
     cmd.current_dir(repo.path())
         .arg("status")
+        .arg("--porcelain")
         .assert()
         .success()
         .stdout(
@@ -165,6 +174,7 @@ fn reports_tracked_files_with_changed_content() -> Result<(), Box<std::error::Er
     let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME"))?;
     cmd.current_dir(repo.path())
         .arg("status")
+        .arg("--porcelain")
         .assert()
         .success()
         .stdout(
@@ -184,6 +194,7 @@ fn reports_deleted_tracked_files() -> Result<(), Box<std::error::Error>> {
     let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME"))?;
     cmd.current_dir(repo.path())
         .arg("status")
+        .arg("--porcelain")
         .assert()
         .success()
         .stdout(
@@ -203,6 +214,7 @@ fn reports_all_deleted_tracked_files_in_directories() -> Result<(), Box<std::err
     let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME"))?;
     cmd.current_dir(repo.path())
         .arg("status")
+        .arg("--porcelain")
         .assert()
         .success()
         .stdout(
@@ -221,6 +233,7 @@ fn untracked_files() -> Result<(), Box<std::error::Error>> {
     let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME"))?;
     cmd.current_dir(repo.path())
         .arg("status")
+        .arg("--porcelain")
         .assert()
         .success()
         .stdout(
@@ -240,6 +253,7 @@ fn untracked_files_not_indexed() -> Result<(), Box<std::error::Error>> {
     let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME"))?;
     cmd.current_dir(repo.path())
         .arg("status")
+        .arg("--porcelain")
         .assert()
         .success()
         .stdout(
@@ -257,6 +271,7 @@ fn lists_untracked_directories() -> Result<(), Box<std::error::Error>> {
     let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME"))?;
     cmd.current_dir(repo.path())
         .arg("status")
+        .arg("--porcelain")
         .assert()
         .success()
         .stdout(
@@ -277,6 +292,7 @@ fn lists_untracked_files_in_tracked_directories() -> Result<(), Box<std::error::
     let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME"))?;
     cmd.current_dir(repo.path())
         .arg("status")
+        .arg("--porcelain")
         .assert()
         .success()
         .stdout(
@@ -294,6 +310,7 @@ fn does_not_list_empty_untracked_dirs() -> Result<(), Box<std::error::Error>> {
     let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME"))?;
     cmd.current_dir(repo.path())
         .arg("status")
+        .arg("--porcelain")
         .assert()
         .success()
         .stdout("");
@@ -307,6 +324,7 @@ fn lists_untracked_dirs_that_contain_files() -> Result<(), Box<std::error::Error
     let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME"))?;
     cmd.current_dir(repo.path())
         .arg("status")
+        .arg("--porcelain")
         .assert()
         .success()
         .stdout(

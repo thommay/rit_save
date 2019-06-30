@@ -37,7 +37,9 @@ fn main() -> BoxResult<()> {
         .subcommand(
             SubCommand::with_name("init").arg(Arg::with_name("PATH").required(true).index(1)),
         )
-        .subcommand(SubCommand::with_name("status"))
+        .subcommand(SubCommand::with_name("status").arg(
+            Arg::with_name("porcelain").long("--porcelain").help("Give the output in an easy-to-parse format for scripts."),
+        ))
         .subcommand(SubCommand::with_name("show_head"))
         .get_matches();
 
