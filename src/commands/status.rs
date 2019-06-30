@@ -17,8 +17,9 @@ use crate::index::entry::Entry;
 enum Status {
     Deleted,
     Modified,
-    IndexModified,
     IndexAdded,
+    IndexDeleted,
+    IndexModified,
 }
 
 impl fmt::Display for Status {
@@ -27,7 +28,7 @@ impl fmt::Display for Status {
             f,
             "{}",
             match self {
-                Status::Deleted => "D",
+                Status::Deleted | Status::IndexDeleted => "D",
                 Status::Modified | Status::IndexModified => "M",
                 Status::IndexAdded => "A",
             }
@@ -77,6 +78,7 @@ impl CmdStatus {
             self.check_index_against_workspace(&entry)?;
             if has_tree {
                 self.check_index_against_tree(&entry)?;
+                self.check_deleted_tree_files();
             }
         }
 
@@ -116,6 +118,19 @@ impl CmdStatus {
             }
         }
         Ok(())
+    }
+
+    fn check_deleted_tree_files(&mut self){
+        let mut deleted = vec![];
+        for path in self.tree.keys() {
+            let p = path.to_str().unwrap();
+            if !self.index.has_entry(&p) {
+                deleted.push(p.to_string().clone());
+            }
+        }
+        for file in deleted {
+            self.record_change(file, Status::IndexDeleted);
+        }
     }
 
     fn check_index_against_tree(&mut self, entry: &Entry) -> BoxResult<()> {
@@ -201,6 +216,8 @@ fn status_for(status: Vec<Status>) -> String {
         "A"
     } else if status.iter().any(|&n| n == Status::IndexModified) {
         "M"
+    } else if status.iter().any(|&n| n == Status::IndexDeleted) {
+        "D"
     } else {
         " "
     };

@@ -175,6 +175,45 @@ fn reports_tracked_files_with_changed_content() -> Result<(), Box<std::error::Er
 }
 
 #[test]
+fn reports_deleted_tracked_files() -> Result<(), Box<std::error::Error>> {
+    let repo = prepare_repo()?;
+    prepare_commits(&repo, vec!["1.txt", "a/2.txt", "a/b/3.txt"])?;
+    delete(&repo, "a/2.txt")?;
+    delete(&repo, ".git/index")?;
+    add_file(&repo, ".")?;
+    let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME"))?;
+    cmd.current_dir(repo.path())
+        .arg("status")
+        .assert()
+        .success()
+        .stdout(
+            r#"D  a/2.txt
+"#,
+        );
+    Ok(())
+}
+
+#[test]
+fn reports_all_deleted_tracked_files_in_directories() -> Result<(), Box<std::error::Error>> {
+    let repo = prepare_repo()?;
+    prepare_commits(&repo, vec!["1.txt", "a/2.txt", "a/b/3.txt"])?;
+    delete(&repo, "a")?;
+    delete(&repo, ".git/index")?;
+    add_file(&repo, ".")?;
+    let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME"))?;
+    cmd.current_dir(repo.path())
+        .arg("status")
+        .assert()
+        .success()
+        .stdout(
+            r#"D  a/2.txt
+D  a/b/3.txt
+"#,
+        );
+    Ok(())
+}
+
+#[test]
 fn untracked_files() -> Result<(), Box<std::error::Error>> {
     let repo = prepare_repo()?;
     write_file(&repo, "file.txt", "hello", false)?;
