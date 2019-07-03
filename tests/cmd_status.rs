@@ -4,8 +4,10 @@ use std::process::Command;
 mod helpers;
 use helpers::*;
 
+use rit::BoxResult;
+
 #[test]
-fn quiet_when_nothing() -> Result<(), Box<std::error::Error>> {
+fn quiet_when_nothing() -> BoxResult<()> {
     let repo = prepare_repo()?;
     prepare_commits(&repo, vec!["1.txt", "a/2.txt", "a/b/3.txt"])?;
     let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME"))?;
@@ -19,7 +21,7 @@ fn quiet_when_nothing() -> Result<(), Box<std::error::Error>> {
 }
 
 #[test]
-fn reports_deleted_files() -> Result<(), Box<std::error::Error>> {
+fn reports_deleted_files() -> BoxResult<()> {
     let repo = prepare_repo()?;
     prepare_commits(&repo, vec!["1.txt", "a/2.txt", "a/b/3.txt"])?;
     delete(&repo, "1.txt")?;
@@ -37,7 +39,7 @@ fn reports_deleted_files() -> Result<(), Box<std::error::Error>> {
 }
 
 #[test]
-fn reports_files_in_deleted_dir() -> Result<(), Box<std::error::Error>> {
+fn reports_files_in_deleted_dir() -> BoxResult<()> {
     let repo = prepare_repo()?;
     prepare_commits(&repo, vec!["1.txt", "a/2.txt", "a/b/3.txt"])?;
     delete(&repo, "a")?;
@@ -56,7 +58,7 @@ fn reports_files_in_deleted_dir() -> Result<(), Box<std::error::Error>> {
 }
 
 #[test]
-fn reports_files_with_modified_contents() -> Result<(), Box<std::error::Error>> {
+fn reports_files_with_modified_contents() -> BoxResult<()> {
     let repo = prepare_repo()?;
     prepare_commits(&repo, vec!["1.txt", "a/2.txt", "a/b/3.txt"])?;
     write_file(&repo, "1.txt", "changed", false)?;
@@ -76,7 +78,7 @@ fn reports_files_with_modified_contents() -> Result<(), Box<std::error::Error>> 
 }
 
 #[test]
-fn reports_files_with_modified_contents_but_same_size() -> Result<(), Box<std::error::Error>> {
+fn reports_files_with_modified_contents_but_same_size() -> BoxResult<()> {
     let repo = prepare_repo()?;
     prepare_commits(&repo, vec!["1.txt", "a/2.txt", "a/b/3.txt"])?;
     write_file(&repo, "1.txt", "hello", false)?;
@@ -94,7 +96,7 @@ fn reports_files_with_modified_contents_but_same_size() -> Result<(), Box<std::e
 }
 
 #[test]
-fn reports_files_with_modified_mode() -> Result<(), Box<std::error::Error>> {
+fn reports_files_with_modified_mode() -> BoxResult<()> {
     let repo = prepare_repo()?;
     prepare_commits(&repo, vec!["1.txt", "a/2.txt", "a/b/3.txt"])?;
     make_executable(&repo, "1.txt")?;
@@ -112,7 +114,7 @@ fn reports_files_with_modified_mode() -> Result<(), Box<std::error::Error>> {
 }
 
 #[test]
-fn reports_added_files() -> Result<(), Box<std::error::Error>> {
+fn reports_added_files() -> BoxResult<()> {
     let repo = prepare_repo()?;
     prepare_commits(&repo, vec!["1.txt", "a/2.txt", "a/b/3.txt"])?;
     write_file(&repo, "a/4.txt", "hello", true)?;
@@ -130,7 +132,7 @@ fn reports_added_files() -> Result<(), Box<std::error::Error>> {
 }
 
 #[test]
-fn reports_added_file_in_untracked_dirs() -> Result<(), Box<std::error::Error>> {
+fn reports_added_file_in_untracked_dirs() -> BoxResult<()> {
     let repo = prepare_repo()?;
     prepare_commits(&repo, vec!["1.txt", "a/2.txt", "a/b/3.txt"])?;
     write_file(&repo, "d/e/4.txt", "hello", true)?;
@@ -148,7 +150,7 @@ fn reports_added_file_in_untracked_dirs() -> Result<(), Box<std::error::Error>> 
 }
 
 #[test]
-fn reports_tracked_files_with_changed_mode() -> Result<(), Box<std::error::Error>> {
+fn reports_tracked_files_with_changed_mode() -> BoxResult<()> {
     let repo = prepare_repo()?;
     prepare_commits(&repo, vec!["1.txt", "a/2.txt", "a/b/3.txt"])?;
     make_executable(&repo, "a/2.txt")?;
@@ -167,7 +169,7 @@ fn reports_tracked_files_with_changed_mode() -> Result<(), Box<std::error::Error
 }
 
 #[test]
-fn reports_tracked_files_with_changed_content() -> Result<(), Box<std::error::Error>> {
+fn reports_tracked_files_with_changed_content() -> BoxResult<()> {
     let repo = prepare_repo()?;
     prepare_commits(&repo, vec!["1.txt", "a/2.txt", "a/b/3.txt"])?;
     write_file(&repo, "a/2.txt", "changed", true)?;
@@ -185,7 +187,7 @@ fn reports_tracked_files_with_changed_content() -> Result<(), Box<std::error::Er
 }
 
 #[test]
-fn reports_deleted_tracked_files() -> Result<(), Box<std::error::Error>> {
+fn reports_deleted_tracked_files() -> BoxResult<()> {
     let repo = prepare_repo()?;
     prepare_commits(&repo, vec!["1.txt", "a/2.txt", "a/b/3.txt"])?;
     delete(&repo, "a/2.txt")?;
@@ -205,7 +207,7 @@ fn reports_deleted_tracked_files() -> Result<(), Box<std::error::Error>> {
 }
 
 #[test]
-fn reports_all_deleted_tracked_files_in_directories() -> Result<(), Box<std::error::Error>> {
+fn reports_all_deleted_tracked_files_in_directories() -> BoxResult<()> {
     let repo = prepare_repo()?;
     prepare_commits(&repo, vec!["1.txt", "a/2.txt", "a/b/3.txt"])?;
     delete(&repo, "a")?;
@@ -226,7 +228,7 @@ D  a/b/3.txt
 }
 
 #[test]
-fn untracked_files() -> Result<(), Box<std::error::Error>> {
+fn untracked_files() -> BoxResult<()> {
     let repo = prepare_repo()?;
     write_file(&repo, "file.txt", "hello", false)?;
     write_file(&repo, "another.txt", "hello", false)?;
@@ -245,7 +247,7 @@ fn untracked_files() -> Result<(), Box<std::error::Error>> {
 }
 
 #[test]
-fn untracked_files_not_indexed() -> Result<(), Box<std::error::Error>> {
+fn untracked_files_not_indexed() -> BoxResult<()> {
     let repo = prepare_repo()?;
     write_file(&repo, "committed.txt", "hello", true)?;
     commit(&repo, "commit message")?;
@@ -264,7 +266,7 @@ fn untracked_files_not_indexed() -> Result<(), Box<std::error::Error>> {
 }
 
 #[test]
-fn lists_untracked_directories() -> Result<(), Box<std::error::Error>> {
+fn lists_untracked_directories() -> BoxResult<()> {
     let repo = prepare_repo()?;
     write_file(&repo, "file.txt", "hello", false)?;
     write_file(&repo, "dir/another.txt", "hello", false)?;
@@ -283,7 +285,7 @@ fn lists_untracked_directories() -> Result<(), Box<std::error::Error>> {
 }
 
 #[test]
-fn lists_untracked_files_in_tracked_directories() -> Result<(), Box<std::error::Error>> {
+fn lists_untracked_files_in_tracked_directories() -> BoxResult<()> {
     let repo = prepare_repo()?;
     write_file(&repo, "a/b/inner.txt", "hello", true)?;
     commit(&repo, "commit")?;
@@ -304,7 +306,7 @@ fn lists_untracked_files_in_tracked_directories() -> Result<(), Box<std::error::
 }
 
 #[test]
-fn does_not_list_empty_untracked_dirs() -> Result<(), Box<std::error::Error>> {
+fn does_not_list_empty_untracked_dirs() -> BoxResult<()> {
     let repo = prepare_repo()?;
     mkdir(&repo, "outer")?;
     let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME"))?;
@@ -318,7 +320,7 @@ fn does_not_list_empty_untracked_dirs() -> Result<(), Box<std::error::Error>> {
 }
 
 #[test]
-fn lists_untracked_dirs_that_contain_files() -> Result<(), Box<std::error::Error>> {
+fn lists_untracked_dirs_that_contain_files() -> BoxResult<()> {
     let repo = prepare_repo()?;
     write_file(&repo, "outer/inner/file.txt", "hello", false)?;
     let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME"))?;

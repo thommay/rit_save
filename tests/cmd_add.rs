@@ -5,7 +5,9 @@ use std::io::Write;
 use std::process::Command;
 use tempdir::TempDir;
 
-fn prepare_repo() -> Result<TempDir, std::io::Error> {
+use rit::BoxResult;
+
+fn prepare_repo() -> BoxResult<TempDir> {
     let tmp = TempDir::new("rit")?;
     let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
     cmd.arg("init").arg(tmp.path()).assert().success();
@@ -13,7 +15,7 @@ fn prepare_repo() -> Result<TempDir, std::io::Error> {
 }
 
 #[test]
-fn add_regular_file() -> Result<(), Box<std::error::Error>> {
+fn add_regular_file() -> BoxResult<()> {
     let repo = prepare_repo()?;
     let new_file = repo.path().join("hello.txt");
     let mut hello = File::create(new_file)?;
@@ -28,7 +30,7 @@ fn add_regular_file() -> Result<(), Box<std::error::Error>> {
 }
 
 #[test]
-fn add_missing_file() -> Result<(), Box<std::error::Error>> {
+fn add_missing_file() -> BoxResult<()> {
     let repo = prepare_repo()?;
     let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME"))?;
     cmd.current_dir(repo.path())
