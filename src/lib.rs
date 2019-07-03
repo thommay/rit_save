@@ -2,6 +2,7 @@ pub mod author;
 pub mod commands;
 pub mod commit;
 pub mod database;
+pub mod diff;
 pub mod index;
 pub mod lockfile;
 pub mod refs;
