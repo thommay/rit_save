@@ -1,18 +1,13 @@
-use rit::author::Author;
-use rit::commit::Commit;
 use rit::database::{Blob, Database, Storable};
-use rit::tree::Tree;
 use rit::utilities::stat_file;
 
 use clap::App;
 use clap::ArgMatches;
 use clap::{Arg, SubCommand};
-use rit::commands::status::CmdStatus;
 use rit::index::Index;
-use rit::refs::Refs;
 use rit::workspace::Workspace;
 use rit::BoxResult;
-use std::io::Read;
+use rit::commands::{status, commit, diff};
 
 fn main() -> BoxResult<()> {
     let app = App::new("jit")
@@ -27,32 +22,25 @@ fn main() -> BoxResult<()> {
             ),
         )
         .subcommand(
-            SubCommand::with_name("commit").arg(
-                Arg::with_name("msg")
-                    .takes_value(true)
-                    .short("m")
-                    .help("sets the commit message"),
-            ),
+            commit::cli()
+        )
+        .subcommand(
+            diff::cli()
         )
         .subcommand(
             SubCommand::with_name("init").arg(Arg::with_name("PATH").required(true).index(1)),
         )
         .subcommand(
-            SubCommand::with_name("status").arg(
-                Arg::with_name("porcelain")
-                    .long("--porcelain")
-                    .help("Give the output in an easy-to-parse format for scripts."),
-            ),
+            status::cli()
         )
-        .subcommand(SubCommand::with_name("show_head"))
         .get_matches();
 
     match app.subcommand() {
         ("add", Some(m)) => git_add(m),
-        ("commit", Some(m)) => git_commit(m),
+        ("commit", Some(m)) => commit::exec(m),
+        ("diff", Some(m)) => diff::exec(m),
         ("init", Some(m)) => git_init(m),
-        ("show_head", Some(_)) => show_head(),
-        ("status", Some(m)) => CmdStatus::new(".")?.exec(m),
+        ("status", Some(m)) => status::exec(m),
         _ => {
             println!("unrecognised command");
             Err(From::from("unrecognised command"))
@@ -94,73 +82,11 @@ fn git_add(matches: &ArgMatches) -> BoxResult<()> {
     Ok(())
 }
 
-fn git_commit(matches: &ArgMatches) -> BoxResult<()> {
-    let root = std::path::Path::new(".");
-
-    let db = Database::new(root.join(".git/objects"));
-    let refs = Refs::new(root.join(".git"));
-    let index = Index::from(root.join(".git/index"))?;
-
-    let root = Tree::build(index.entries());
-    root.traverse(&|x| db.store(x).unwrap());
-
-    let name = std::env::var("GIT_AUTHOR_NAME")?;
-    let email = std::env::var("GIT_AUTHOR_EMAIL")?;
-    let author = Author::new(name, email, std::time::SystemTime::now());
-
-    let mut msg = String::new();
-    let message = if matches.is_present("msg") {
-        matches.value_of("msg").unwrap()
-    } else {
-        let stdin = std::io::stdin();
-        let mut handle = stdin.lock();
-        handle.read_to_string(&mut msg)?;
-        msg.as_ref()
-    };
-
-    let parent = refs.get_head();
-    let parented = parent.is_some();
-
-    let commit = Commit::new(parent, &root.oid(), author, message);
-
-    if parented {
-        println!("[{}]", &commit.oid());
-    } else {
-        println!("[(root-commit) {}]", &commit.oid());
-    }
-
-    refs.update_head(&commit.oid())?;
-
-    db.store(commit)?;
-    index.release_lock()?;
-    Ok(())
-}
 
 fn git_init(matches: &ArgMatches) -> BoxResult<()> {
     let path = std::path::Path::new(matches.value_of("PATH").unwrap());
     let target = path.join(".git");
     std::fs::create_dir_all(target.join("objects"))?;
     std::fs::create_dir_all(target.join("refs"))?;
-    Ok(())
-}
-
-fn show_head() -> BoxResult<()> {
-    let root = std::path::Path::new(".");
-
-    let db = Database::new(root.join(".git/objects"));
-    let refs = Refs::new(root.join(".git"));
-    let head = refs.get_head();
-    if let Some(head) = head {
-        let (kind, _, data) = db.read_object(head.as_ref())?;
-        if kind == "commit" {
-            let commit = Commit::from(data)?;
-            let tree = commit.tree;
-            let (kind, _, data) = db.read_object(tree.as_ref())?;
-            if kind == "tree" {
-                let tree = Tree::from(data)?;
-                dbg!(&tree);
-            }
-        }
-    }
     Ok(())
 }
