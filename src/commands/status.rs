@@ -1,6 +1,6 @@
 use crate::repository::{Repository, Status};
 use crate::BoxResult;
-use clap::{ArgMatches, SubCommand, Arg, App};
+use clap::{App, Arg, ArgMatches, SubCommand};
 use colored::*;
 use std::collections::BTreeMap;
 

@@ -69,8 +69,8 @@ impl Myers {
 
             while x > prev_x && y > prev_y {
                 ret.push((x - 1, y - 1, x, y));
-                x = x - 1;
-                y = y - 1;
+                x -= 1;
+                y -= 1;
             }
 
             if d > 0 {
@@ -110,6 +110,7 @@ impl Myers {
         trace
     }
 
+    #[allow(clippy::many_single_char_names)]
     fn shortest_edit_step(
         &self,
         n: i32,
@@ -122,9 +123,7 @@ impl Myers {
         // if k is negative, start filling out the array from the end rather than the beginning
         let (i, minus_1, plus_1) = Myers::bounds(max * 2, k);
 
-        let opt_x = if k == -d {
-            v[plus_1]
-        } else if k != d && v[minus_1] < v[plus_1] {
+        let opt_x = if k == -d || (k != d && v[minus_1] < v[plus_1]) {
             v[plus_1]
         } else {
             v[minus_1].map(|x| x + 1)
@@ -135,8 +134,8 @@ impl Myers {
 
         // a diagonal move: if both sides are the same we can keep moving without bumping the score
         while x < n && y < m && self.a[x as usize] == self.b[y as usize] {
-            x = x + 1;
-            y = y + 1;
+            x += 1;
+            y += 1;
         }
         v[i] = Some(x);
 
@@ -144,7 +143,7 @@ impl Myers {
             return RunningEdit::Completed;
         }
 
-        return RunningEdit::Running;
+        RunningEdit::Running
     }
 
     fn bounds(max: i32, k: i32) -> (usize, usize, usize) {
@@ -166,7 +165,11 @@ mod tests {
         let b = "A\n";
         let algo = Myers::from(a, b);
         let vals = algo.shortest_edit();
-        assert_eq!(1, vals.len())
+        let expected = vec![None, Some(0), None, None, None];
+
+        assert_eq!(1, vals.len());
+        let frame = vals.last().unwrap();
+        assert_eq!(frame, &expected)
     }
 
     #[test]
@@ -184,15 +187,6 @@ mod tests {
         let b = "C\nB\nA\nB\nA\nC\n";
         let algo = Myers::from(a, b);
         assert_eq!(6, algo.shortest_edit().len())
-    }
-
-    #[test]
-    fn test_backtrack() {
-        let a = "A\nB\nC\nA\nB\nB\nA\n";
-        let b = "C\nB\nA\nB\nA\nC\n";
-        let algo = Myers::from(a, b);
-        let vals = algo.backtrack();
-        dbg!(&vals);
     }
 
     #[test]

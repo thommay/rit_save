@@ -1,13 +1,13 @@
-use crate::{index, workspace, database, refs, BoxResult, tree, commit};
-use std::path::{Path, PathBuf};
-use std::fmt;
-use crate::index::entry::Entry;
-use crate::database::{Blob, Storable};
-use crate::tree::TreeEntry;
 use crate::database::marker::{Kind, Marker};
-use std::collections::BTreeMap;
-use std::fs::Metadata;
+use crate::database::{Blob, Storable};
+use crate::index::entry::Entry;
+use crate::tree::TreeEntry;
+use crate::{commit, database, index, refs, tree, workspace, BoxResult};
 use failure::Error;
+use std::collections::BTreeMap;
+use std::fmt;
+use std::fs::Metadata;
+use std::path::{Path, PathBuf};
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum Changed {
@@ -67,7 +67,18 @@ impl Repository {
         let stats = BTreeMap::new();
         let tree = BTreeMap::new();
 
-        Ok(Repository { workspace, index, database, refs, untracked, changed, index_changes, workspace_changes, stats, tree })
+        Ok(Repository {
+            workspace,
+            index,
+            database,
+            refs,
+            untracked,
+            changed,
+            index_changes,
+            workspace_changes,
+            stats,
+            tree,
+        })
     }
 
     pub fn status(&mut self) -> BoxResult<()> {

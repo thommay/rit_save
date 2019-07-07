@@ -1,5 +1,5 @@
-use clap::{App, SubCommand, ArgMatches};
 use crate::BoxResult;
+use clap::{App, ArgMatches, SubCommand};
 
 pub fn cli() -> App<'static, 'static> {
     SubCommand::with_name("diff")

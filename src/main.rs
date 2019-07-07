@@ -4,10 +4,10 @@ use rit::utilities::stat_file;
 use clap::App;
 use clap::ArgMatches;
 use clap::{Arg, SubCommand};
+use rit::commands::{commit, diff, status};
 use rit::index::Index;
 use rit::workspace::Workspace;
 use rit::BoxResult;
-use rit::commands::{status, commit, diff};
 
 fn main() -> BoxResult<()> {
     let app = App::new("jit")
@@ -21,18 +21,12 @@ fn main() -> BoxResult<()> {
                     .multiple(true),
             ),
         )
-        .subcommand(
-            commit::cli()
-        )
-        .subcommand(
-            diff::cli()
-        )
+        .subcommand(commit::cli())
+        .subcommand(diff::cli())
         .subcommand(
             SubCommand::with_name("init").arg(Arg::with_name("PATH").required(true).index(1)),
         )
-        .subcommand(
-            status::cli()
-        )
+        .subcommand(status::cli())
         .get_matches();
 
     match app.subcommand() {
@@ -81,7 +75,6 @@ fn git_add(matches: &ArgMatches) -> BoxResult<()> {
     index.write_updates()?;
     Ok(())
 }
-
 
 fn git_init(matches: &ArgMatches) -> BoxResult<()> {
     let path = std::path::Path::new(matches.value_of("PATH").unwrap());

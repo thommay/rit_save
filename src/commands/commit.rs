@@ -1,12 +1,12 @@
-use clap::{App, SubCommand, Arg, ArgMatches};
-use crate::BoxResult;
-use crate::database::{Database, Storable};
-use crate::refs::Refs;
-use crate::index::Index;
-use crate::tree::Tree;
 use crate::author::Author;
-use std::io::Read;
 use crate::commit::Commit;
+use crate::database::{Database, Storable};
+use crate::index::Index;
+use crate::refs::Refs;
+use crate::tree::Tree;
+use crate::BoxResult;
+use clap::{App, Arg, ArgMatches, SubCommand};
+use std::io::Read;
 
 pub fn cli() -> App<'static, 'static> {
     SubCommand::with_name("commit").arg(
