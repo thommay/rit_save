@@ -39,9 +39,9 @@ impl fmt::Display for Status {
 }
 
 pub struct Repository {
-    workspace: workspace::Workspace,
-    index: index::Index,
-    database: database::Database,
+    pub workspace: workspace::Workspace,
+    pub index: index::Index,
+    pub database: database::Database,
     refs: refs::Refs,
     pub index_changes: BTreeMap<String, Status>,
     pub workspace_changes: BTreeMap<String, Status>,

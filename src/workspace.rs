@@ -60,7 +60,7 @@ impl Workspace {
         }
     }
 
-    pub fn read_file(&self, path: &Path) -> Result<String, Error> {
+    pub fn read_file<P: AsRef<Path>>(&self, path: P) -> Result<String, Error> {
         let path = self.path.join(path);
         let mut file = File::open(path)?;
         let mut contents = String::new();

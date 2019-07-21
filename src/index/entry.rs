@@ -143,11 +143,7 @@ impl Entry {
     }
 
     pub fn mode(&self) -> String {
-        if is_executable(self.mode) {
-            "100755".into()
-        } else {
-            "100644".into()
-        }
+        Entry::mode_from_stat(self.mode)
     }
 
     pub fn filename(&self) -> &str {
@@ -162,6 +158,14 @@ impl Entry {
 
     pub fn parent_directories(&self) -> Ancestors {
         self.path.parent().unwrap().ancestors()
+    }
+
+    pub fn mode_from_stat(mode: u32) -> String {
+        if is_executable(mode) {
+            "100755".into()
+        } else {
+            "100644".into()
+        }
     }
 }
 

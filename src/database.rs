@@ -3,6 +3,7 @@ use failure::Error;
 use flate2::bufread::ZlibDecoder;
 use flate2::write::ZlibEncoder;
 use flate2::Compression;
+use std::convert::TryFrom;
 use std::fs::OpenOptions;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
@@ -21,6 +22,35 @@ impl Database {
         }
     }
 
+    pub fn read_object(&self, oid: &str) -> Result<(String, u64, Vec<u8>), Error> {
+        let (_, path) = self.object_path(oid)?;
+        if !path.exists() {
+            return Err(format_err!("object {} does not exist", oid));
+        }
+        let mut out = Vec::new();
+        let file = OpenOptions::new().read(true).open(path)?;
+        let reader = BufReader::new(file);
+        let mut z = ZlibDecoder::new(reader);
+        z.read_to_end(&mut out)?;
+        let mut cursor = std::io::Cursor::new(out);
+
+        let mut tp = vec![];
+        cursor.read_until(b' ', &mut tp)?;
+        let tp = String::from_utf8(tp)?;
+        let tp = tp.trim_end_matches(' ');
+
+        let mut size = vec![];
+        cursor.read_until(b'\0', &mut size)?;
+        let size = std::str::from_utf8(size.as_ref())?
+            .trim_end_matches('\0')
+            .parse::<u64>()?;
+
+        let mut out = vec![];
+        cursor.read_to_end(&mut out)?;
+
+        Ok((tp.to_string(), size, out))
+    }
+
     pub fn store<T>(&self, blob: T) -> Result<(), Error>
     where
         T: Storable,
@@ -28,6 +58,10 @@ impl Database {
         let content = blob.serialize();
         let oid = blob.oid();
         self.write(oid, content)
+    }
+
+    pub fn truncate_oid(&self, oid: &str) -> Option<String> {
+        oid.get(0..=6).map(|t| String::from(t))
     }
 
     fn write(&self, oid: String, content: Vec<u8>) -> Result<(), Error> {
@@ -61,35 +95,6 @@ impl Database {
         let path = dir.join(std::str::from_utf8(filename)?);
         Ok((dir, path))
     }
-
-    pub fn read_object(&self, oid: &str) -> Result<(String, u64, Vec<u8>), Error> {
-        let (_, path) = self.object_path(oid)?;
-        if !path.exists() {
-            return Err(format_err!("object {} does not exist", oid));
-        }
-        let mut out = Vec::new();
-        let file = OpenOptions::new().read(true).open(path)?;
-        let reader = BufReader::new(file);
-        let mut z = ZlibDecoder::new(reader);
-        z.read_to_end(&mut out)?;
-        let mut cursor = std::io::Cursor::new(out);
-
-        let mut tp = vec![];
-        cursor.read_until(b' ', &mut tp)?;
-        let tp = String::from_utf8(tp)?;
-        let tp = tp.trim_end_matches(' ');
-
-        let mut size = vec![];
-        cursor.read_until(b'\0', &mut size)?;
-        let size = std::str::from_utf8(size.as_ref())?
-            .trim_end_matches('\0')
-            .parse::<u64>()?;
-
-        let mut out = vec![];
-        cursor.read_to_end(&mut out)?;
-
-        Ok((tp.to_string(), size, out))
-    }
 }
 
 pub trait Storable {
@@ -101,7 +106,7 @@ pub trait Storable {
 
 #[derive(Clone, Debug, Default)]
 pub struct Blob {
-    data: String,
+    pub(crate) data: String,
 }
 
 impl Blob {
@@ -111,6 +116,15 @@ impl Blob {
 
     fn content(&self) -> String {
         self.data.to_string()
+    }
+}
+
+impl TryFrom<Vec<u8>> for Blob {
+    type Error = failure::Error;
+
+    fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+        let data = String::from_utf8(value)?;
+        Ok(Self { data })
     }
 }
 

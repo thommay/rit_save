@@ -2,9 +2,9 @@ use std::fmt;
 
 #[derive(Debug, PartialEq)]
 pub enum Edit {
-    Insert,
-    Delete,
-    Equals,
+    Insert(String),
+    Delete(String),
+    Equals(String),
 }
 
 impl fmt::Display for Edit {
@@ -13,9 +13,9 @@ impl fmt::Display for Edit {
             f,
             "{}",
             match self {
-                Edit::Equals => " ",
-                Edit::Insert => "+",
-                Edit::Delete => "-",
+                Edit::Equals(e) => format!(" {}", e),
+                Edit::Insert(e) => format!("+ {}", e),
+                Edit::Delete(e) => format!("- {}", e),
             }
         )
     }

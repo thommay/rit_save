@@ -42,59 +42,20 @@ impl Index {
         self.add_entry(entry);
     }
 
-    fn add_entry(&mut self, entry: Entry) {
-        let pth = entry.path.to_str().unwrap().to_owned();
-
-        self.discard_conflicts(&entry);
-
-        for dir in entry.parent_directories() {
-            let dir = dir.to_str().unwrap().to_string();
-            self.parents
-                .entry(dir)
-                .and_modify(|e| e.push(entry.path.clone()))
-                .or_insert_with(|| vec![entry.path.clone()]);
-        }
-
-        self.entries.insert(pth, entry);
-        self.changed = true;
+    pub fn entries(&self) -> Vec<Entry> {
+        self.entries.values().cloned().collect()
     }
 
-    fn discard_conflicts(&mut self, entry: &Entry) {
-        for dir in entry.parent_directories() {
-            let key = dir.as_os_str().to_str().unwrap();
-            self.remove_entry(key);
-        }
-        if let Some(children) = self.parents.clone().get(entry.path.to_str().unwrap()) {
-            for child in children {
-                let key = child.as_os_str().to_str().unwrap();
-                self.remove_entry(key);
-            }
-        }
-    }
-
-    pub fn release_lock(self) -> Result<(), Error> {
-        self.lock.release()
-    }
-
-    fn remove_entry(&mut self, key: &str) {
-        if let Some(entry) = self.entries.get(key) {
-            for dir in entry.parent_directories() {
-                self.parents
-                    .entry(dir.to_str().unwrap().into())
-                    .and_modify(|f| {
-                        if let Ok(index) = f.binary_search(&PathBuf::from(key)) {
-                            f.remove(index);
-                        }
-                    });
-            }
-        } else {
-            return;
-        }
-        self.entries.remove(key);
+    pub fn get_entry(&self, key: &str) -> Option<&Entry> {
+        self.entries.get(key)
     }
 
     pub fn has_entry(&self, key: &str) -> bool {
         self.entries.contains_key(key) || self.parents.contains_key(key)
+    }
+
+    pub fn release_lock(self) -> Result<(), Error> {
+        self.lock.release()
     }
 
     pub fn write_updates(mut self) -> Result<(), Error> {
@@ -117,6 +78,42 @@ impl Index {
         self.changed = false;
         self.lock.commit()?;
         Ok(())
+    }
+
+    fn add_entry(&mut self, entry: Entry) {
+        let pth = entry.path.to_str().unwrap().to_owned();
+
+        self.discard_conflicts(&entry);
+
+        for dir in entry.parent_directories() {
+            let dir = dir.to_str().unwrap().to_string();
+            self.parents
+                .entry(dir)
+                .and_modify(|e| e.push(entry.path.clone()))
+                .or_insert_with(|| vec![entry.path.clone()]);
+        }
+
+        self.entries.insert(pth, entry);
+        self.changed = true;
+    }
+
+    fn clear(&mut self) {
+        self.entries = BTreeMap::new();
+        self.parents = HashMap::new();
+        self.changed = false;
+    }
+
+    fn discard_conflicts(&mut self, entry: &Entry) {
+        for dir in entry.parent_directories() {
+            let key = dir.as_os_str().to_str().unwrap();
+            self.remove_entry(key);
+        }
+        if let Some(children) = self.parents.clone().get(entry.path.to_str().unwrap()) {
+            for child in children {
+                let key = child.as_os_str().to_str().unwrap();
+                self.remove_entry(key);
+            }
+        }
     }
 
     pub fn load(&mut self) -> Result<(), Error> {
@@ -166,16 +163,27 @@ impl Index {
         header.read_u32::<BigEndian>().map_err(|e| e.into())
     }
 
-    fn clear(&mut self) {
-        self.entries = BTreeMap::new();
-        self.parents = HashMap::new();
-        self.changed = false;
-    }
-
     fn read(&self, index: &mut File, digest: &mut Sha1, data: &mut [u8]) -> Result<usize, Error> {
         let res = index.read(data)?;
         digest.update(data);
         Ok(res)
+    }
+
+    fn remove_entry(&mut self, key: &str) {
+        if let Some(entry) = self.entries.get(key) {
+            for dir in entry.parent_directories() {
+                self.parents
+                    .entry(dir.to_str().unwrap().into())
+                    .and_modify(|f| {
+                        if let Ok(index) = f.binary_search(&PathBuf::from(key)) {
+                            f.remove(index);
+                        }
+                    });
+            }
+        } else {
+            return;
+        }
+        self.entries.remove(key);
     }
 
     fn write(&self, digest: &mut Sha1, data: Vec<u8>) -> Result<(), Error> {
@@ -184,9 +192,6 @@ impl Index {
         Ok(())
     }
 
-    pub fn entries(&self) -> Vec<Entry> {
-        self.entries.values().cloned().collect()
-    }
 }
 
 #[cfg(test)]

@@ -1,4 +1,5 @@
 use crate::diff::edit::Edit;
+use crate::diff::myers_graph::MyersGraph;
 
 #[derive(Debug, PartialEq)]
 enum RunningEdit {
@@ -6,22 +7,22 @@ enum RunningEdit {
     Completed,
 }
 
-struct Myers {
-    a: Vec<&'static str>,
-    b: Vec<&'static str>,
+pub(crate) struct Myers<'a> {
+    a: Vec<&'a str>,
+    b: Vec<&'a str>,
 }
 
-impl Myers {
-    pub fn from(a: &'static str, b: &'static str) -> Self {
+impl<'a> Myers<'a> {
+    pub fn from(a: &'a str, b: &'a str) -> Self {
         let a = a.lines().collect::<Vec<&str>>();
         let b = b.lines().collect::<Vec<&str>>();
         Myers { a, b }
     }
 
-    pub fn diff(&self) -> Vec<(Edit, &str)> {
+    pub fn diff(&self) -> Vec<Edit> {
         let mut diff = vec![];
-        let a_size = self.a.len() as i32;
-        let b_size = self.b.len() as i32;
+        let a_size = self.a.len() as isize;
+        let b_size = self.b.len() as isize;
         for (prev_x, prev_y, x, y) in self.backtrack() {
             let a_line = if prev_x < a_size {
                 self.a[prev_x as usize]
@@ -35,36 +36,34 @@ impl Myers {
             };
 
             if x == prev_x {
-                diff.push((Edit::Insert, b_line));
+                diff.push(Edit::Insert(b_line.to_owned()));
             } else if y == prev_y {
-                diff.push((Edit::Delete, a_line))
+                diff.push(Edit::Delete(a_line.to_owned()));
             } else {
-                diff.push((Edit::Equals, a_line))
+                diff.push(Edit::Equals(a_line.to_owned()));
             }
         }
         diff.reverse();
         diff
     }
 
-    fn backtrack(&self) -> Vec<(i32, i32, i32, i32)> {
-        let mut x = self.a.len() as i32;
-        let mut y = self.b.len() as i32;
+    fn backtrack(&self) -> Vec<(isize, isize, isize, isize)> {
+        let mut x = self.a.len() as isize;
+        let mut y = self.b.len() as isize;
         let mut ret = vec![];
         let edits = self.shortest_edit();
         let range = (0..edits.len()).rev();
 
         for (v, d) in edits.iter().rev().zip(range) {
-            let d = d as i32;
+            let d = d as isize;
             let k = x - y;
-            let size = v.len();
-            let (_i, minus_1, plus_1) = Myers::bounds(size as i32 - 1, k);
 
-            let prev_k = if k == -d || (k != d && v[minus_1] < v[plus_1]) {
+            let prev_k = if k == -d || (k != d && v[k - 1] < v[k + 1]) {
                 k + 1
             } else {
                 k - 1
             };
-            let prev_x = v[prev_k as usize].unwrap();
+            let prev_x = v[prev_k].unwrap();
             let prev_y = prev_x - prev_k;
 
             while x > prev_x && y > prev_y {
@@ -82,28 +81,27 @@ impl Myers {
         ret
     }
 
-    fn shortest_edit(&self) -> Vec<Vec<Option<i32>>> {
-        let n = self.a.len() as i32;
-        let m = self.b.len() as i32;
+    fn shortest_edit(&self) -> Vec<MyersGraph> {
+        let n = self.a.len() as isize;
+        let m = self.b.len() as isize;
         let max = n + m;
-        let mut v: Vec<Option<i32>> = vec![None; max as usize * 2 + 1];
+        let mut v = MyersGraph::new(max);
         v[1] = Some(0);
         let mut trace = vec![];
         let mut state: RunningEdit;
 
-        'outer: for d in 0..=max as i32 {
+        trace.push(v.clone());
+        state = self.shortest_edit_step(n, m, &mut v, 0, 0);
+        if state == RunningEdit::Completed {
+            return trace;
+        }
+
+        for d in 1..=max {
             trace.push(v.clone());
-            if d == 0 {
-                state = self.shortest_edit_step(n, m, max, &mut v, 0, 0);
+            for k in (-d..=d).step_by(2) {
+                state = self.shortest_edit_step(n, m, &mut v, d, k);
                 if state == RunningEdit::Completed {
-                    break 'outer;
-                }
-            } else {
-                for k in (-d..=d).step_by(2) {
-                    state = self.shortest_edit_step(n, m, max, &mut v, d, k);
-                    if state == RunningEdit::Completed {
-                        break 'outer;
-                    }
+                    return trace;
                 }
             }
         }
@@ -113,31 +111,27 @@ impl Myers {
     #[allow(clippy::many_single_char_names)]
     fn shortest_edit_step(
         &self,
-        n: i32,
-        m: i32,
-        max: i32,
-        v: &mut Vec<Option<i32>>,
-        d: i32,
-        k: i32,
+        n: isize,
+        m: isize,
+        v: &mut MyersGraph,
+        d: isize,
+        k: isize,
     ) -> RunningEdit {
-        // if k is negative, start filling out the array from the end rather than the beginning
-        let (i, minus_1, plus_1) = Myers::bounds(max * 2, k);
-
-        let opt_x = if k == -d || (k != d && v[minus_1] < v[plus_1]) {
-            v[plus_1]
+        let opt_x = if k == -d || (k != d && v[k - 1] < v[k + 1]) {
+            v[k + 1]
         } else {
-            v[minus_1].map(|x| x + 1)
+            v[k - 1].map(|x| x + 1)
         };
 
-        let mut y: i32 = if let Some(x) = opt_x { x - k } else { 0 };
-        let mut x: i32 = opt_x.unwrap_or(0);
+        let mut y = if let Some(x) = opt_x { x - k } else { 0 };
+        let mut x = opt_x.unwrap_or(0);
 
         // a diagonal move: if both sides are the same we can keep moving without bumping the score
         while x < n && y < m && self.a[x as usize] == self.b[y as usize] {
             x += 1;
             y += 1;
         }
-        v[i] = Some(x);
+        v[k] = Some(x);
 
         if x >= n && y >= m {
             return RunningEdit::Completed;
@@ -145,19 +139,13 @@ impl Myers {
 
         RunningEdit::Running
     }
-
-    fn bounds(max: i32, k: i32) -> (usize, usize, usize) {
-        let i = if k < 0 { (max + 1) + k } else { k } as usize;
-        let minus_1 = if i == 0 { max as usize } else { i - 1 };
-        let plus_1 = if i == max as usize { 1 } else { i + 1 };
-        (i, minus_1, plus_1)
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::Myers;
     use crate::diff::edit::Edit;
+    use crate::diff::myers_graph::MyersGraph;
 
     #[test]
     fn test_no_edit() {
@@ -165,9 +153,9 @@ mod tests {
         let b = "A\n";
         let algo = Myers::from(a, b);
         let vals = algo.shortest_edit();
-        let expected = vec![None, Some(0), None, None, None];
+        let expected = MyersGraph::from(vec![None, None, None, Some(0), None]);
 
-        assert_eq!(1, vals.len());
+        assert_eq!(vals.len(), 1);
         let frame = vals.last().unwrap();
         assert_eq!(frame, &expected)
     }
@@ -178,15 +166,139 @@ mod tests {
         let b = "B\n";
         let algo = Myers::from(a, b);
         let vals = algo.shortest_edit();
-        assert_eq!(3, vals.len())
+        let expected = MyersGraph::from(vec![None, Some(0), Some(0), Some(1), None]);
+
+        assert_eq!(vals.len(), 3);
+        let frame = vals.last().unwrap();
+        assert_eq!(frame, &expected)
     }
 
+    #[test]
+    fn test_an_edit() {
+        let a = "A\nB\nA\n";
+        let b = "B\nB\nB\n";
+        let algo = Myers::from(a, b);
+        let vals = algo.shortest_edit();
+        let expected = vec![
+            MyersGraph::from(vec![
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(0),
+                None,
+                None,
+                None,
+                None,
+                None,
+            ]),
+            MyersGraph::from(vec![
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(0),
+                Some(0),
+                None,
+                None,
+                None,
+                None,
+                None,
+            ]),
+            MyersGraph::from(vec![
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(0),
+                Some(0),
+                Some(2),
+                None,
+                None,
+                None,
+                None,
+                None,
+            ]),
+            MyersGraph::from(vec![
+                None,
+                None,
+                None,
+                None,
+                Some(0),
+                Some(0),
+                Some(2),
+                Some(2),
+                Some(3),
+                None,
+                None,
+                None,
+                None,
+            ]),
+            MyersGraph::from(vec![
+                None,
+                None,
+                None,
+                Some(0),
+                Some(0),
+                Some(2),
+                Some(2),
+                Some(3),
+                Some(3),
+                Some(4),
+                None,
+                None,
+                None,
+            ]),
+        ];
+
+        assert_eq!(vals.len(), 5);
+        assert_eq!(&vals, &expected)
+    }
     #[test]
     fn test_shortest_edit() {
         let a = "A\nB\nC\nA\nB\nB\nA\n";
         let b = "C\nB\nA\nB\nA\nC\n";
         let algo = Myers::from(a, b);
-        assert_eq!(6, algo.shortest_edit().len())
+        let vals = algo.shortest_edit();
+        dbg!(&vals);
+        assert_eq!(vals.len(), 6);
+        let expected = MyersGraph::from(vec![
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(3),
+            Some(3),
+            Some(4),
+            Some(4),
+            Some(5),
+            Some(5),
+            Some(7),
+            Some(5),
+            Some(7),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        ]);
+        let frame = vals.last().unwrap();
+        assert_eq!(frame, &expected)
     }
 
     #[test]
@@ -197,16 +309,59 @@ mod tests {
         let vals = algo.diff();
 
         let expected = vec![
-            (Edit::Delete, "A"),
-            (Edit::Delete, "B"),
-            (Edit::Equals, "C"),
-            (Edit::Insert, "B"),
-            (Edit::Equals, "A"),
-            (Edit::Equals, "B"),
-            (Edit::Delete, "B"),
-            (Edit::Equals, "A"),
-            (Edit::Insert, "C"),
+            Edit::Delete(String::from("A")),
+            Edit::Delete(String::from("B")),
+            Edit::Equals(String::from("C")),
+            Edit::Insert(String::from("B")),
+            Edit::Equals(String::from("A")),
+            Edit::Equals(String::from("B")),
+            Edit::Delete(String::from("B")),
+            Edit::Equals(String::from("A")),
+            Edit::Insert(String::from("C")),
         ];
         assert_eq!(vals, expected)
     }
+
+    #[test]
+    fn test_lopsided_diff() {
+        let a = "A\nB\nC\nA\nB\nB\nA\n";
+        let b = "C\nB\nA\nB\nA\nC\nC\nB\nA\nB\nA\nC\nC\nB\nA\nB\nA\nC\nC\nB\nA\nB\nA\nC\nC\nB\nA\nB\nA\nC\n";
+        let algo = Myers::from(a, b);
+        let vals = algo.diff();
+
+        let expected = vec![
+            Edit::Insert(String::from("C")),
+            Edit::Insert(String::from("B")),
+            Edit::Equals(String::from("A")),
+            Edit::Equals(String::from("B")),
+            Edit::Insert(String::from("A")),
+            Edit::Equals(String::from("C")),
+            Edit::Insert(String::from("C")),
+            Edit::Insert(String::from("B")),
+            Edit::Equals(String::from("A")),
+            Edit::Equals(String::from("B")),
+            Edit::Insert(String::from("A")),
+            Edit::Insert(String::from("C")),
+            Edit::Insert(String::from("C")),
+            Edit::Equals(String::from("B")),
+            Edit::Equals(String::from("A")),
+            Edit::Insert(String::from("B")),
+            Edit::Insert(String::from("A")),
+            Edit::Insert(String::from("C")),
+            Edit::Insert(String::from("C")),
+            Edit::Insert(String::from("B")),
+            Edit::Insert(String::from("A")),
+            Edit::Insert(String::from("B")),
+            Edit::Insert(String::from("A")),
+            Edit::Insert(String::from("C")),
+            Edit::Insert(String::from("C")),
+            Edit::Insert(String::from("B")),
+            Edit::Insert(String::from("A")),
+            Edit::Insert(String::from("B")),
+            Edit::Insert(String::from("A")),
+            Edit::Insert(String::from("C")),
+        ];
+        assert_eq!(vals, expected)
+    }
+
 }
