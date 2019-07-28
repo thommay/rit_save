@@ -61,7 +61,7 @@ impl Database {
     }
 
     pub fn truncate_oid(&self, oid: &str) -> Option<String> {
-        oid.get(0..=6).map(|t| String::from(t))
+        oid.get(0..=6).map(String::from)
     }
 
     fn write(&self, oid: String, content: Vec<u8>) -> Result<(), Error> {

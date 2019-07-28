@@ -1,9 +1,12 @@
+use crate::commands::pager;
 use crate::database::{Blob, Storable};
+use crate::diff::hunk::Hunk;
 use crate::diff::myers::Myers;
 use crate::index::entry::Entry;
 use crate::repository::{Repository, Status};
 use crate::{BoxResult, CliError};
 use clap::{App, Arg, ArgMatches, SubCommand};
+use colored::Colorize;
 use std::convert::TryFrom;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
@@ -19,6 +22,7 @@ pub fn cli() -> App<'static, 'static> {
 pub fn exec(matches: &ArgMatches) -> BoxResult<()> {
     let root = std::path::Path::new(".");
     let mut repository = Repository::new(root)?;
+    //    pager();
     let cached = matches.is_present("cached");
     repository.status()?;
     if cached {
@@ -154,7 +158,7 @@ impl Differ for Repository {
         let oid = self
             .database
             .truncate_oid(NILL_OID)
-            .unwrap_or(String::from(NILL_OID));
+            .unwrap_or_else(|| String::from(NILL_OID));
         Ok(Target {
             path,
             oid,
@@ -169,33 +173,45 @@ impl Differ for Repository {
         let b_pth_str = Path::new("b").join(b.path);
         let b_pth_str = b_pth_str.to_str().expect("couldn't extract path for diff");
 
-        println!("diff --git {} {}", a_pth_str, b_pth_str);
+        println!(
+            "{}",
+            format!("diff --git {} {}", a_pth_str, b_pth_str).bold()
+        );
 
         let mode_str = if a.mode.is_none() {
-            println!("new file mode {}", b.mode.unwrap());
+            println!("{}", format!("new file mode {}", b.mode.unwrap()).bold());
             String::new()
         } else if b.mode.is_none() {
-            println!("deleted file mode {}", a.mode.unwrap());
+            println!(
+                "{}",
+                format!("deleted file mode {}", a.mode.unwrap()).bold()
+            );
             String::new()
         } else if a.mode != b.mode {
-            println!("old mode {}", a.mode.unwrap());
-            println!("new mode {}", b.mode.unwrap());
+            println!("{}", format!("old mode {}", a.mode.unwrap()).bold());
+            println!("{}", format!("new mode {}", b.mode.unwrap()).bold());
             String::new()
         } else {
-            format!(" {}", &a.mode.unwrap())
+            format!(" {}", &a.mode.unwrap().bold())
         };
 
         if a.oid == b.oid {
             return;
         }
 
-        println!("index {}..{}{}", a.oid, b.oid, mode_str);
-        println!("--- {}", a_pth_str);
-        println!("+++ {}", b_pth_str);
+        println!(
+            "{}",
+            format!("index {}..{}{}", a.oid, b.oid, mode_str).bold()
+        );
+        println!("{}", format!("--- {}", a_pth_str).bold());
+        println!("{}", format!("+++ {}", b_pth_str).bold());
 
         let edits = Myers::from(a.data.as_ref(), b.data.as_ref()).diff();
-        for edit in edits {
-            println!("{}", edit);
+        for hunk in Hunk::filter(edits) {
+            println!("{}", hunk.header().cyan());
+            for edit in hunk.edits {
+                println!("{}", edit);
+            }
         }
     }
 }

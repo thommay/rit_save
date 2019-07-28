@@ -1,4 +1,4 @@
-use crate::diff::edit::Edit;
+use crate::diff::edit::{Edit, Line};
 use crate::diff::myers_graph::MyersGraph;
 
 #[derive(Debug, PartialEq)]
@@ -7,15 +7,29 @@ enum RunningEdit {
     Completed,
 }
 
-pub(crate) struct Myers<'a> {
-    a: Vec<&'a str>,
-    b: Vec<&'a str>,
+pub(crate) struct Myers {
+    a: Vec<Line>,
+    b: Vec<Line>,
 }
 
-impl<'a> Myers<'a> {
-    pub fn from(a: &'a str, b: &'a str) -> Self {
-        let a = a.lines().collect::<Vec<&str>>();
-        let b = b.lines().collect::<Vec<&str>>();
+impl Myers {
+    pub fn from(a: &str, b: &str) -> Self {
+        let a = a
+            .lines()
+            .enumerate()
+            .map(|(num, text)| Line {
+                content: text.to_owned(),
+                number: num,
+            })
+            .collect::<Vec<Line>>();
+        let b = b
+            .lines()
+            .enumerate()
+            .map(|(num, text)| Line {
+                content: text.to_owned(),
+                number: num,
+            })
+            .collect::<Vec<Line>>();
         Myers { a, b }
     }
 
@@ -25,22 +39,22 @@ impl<'a> Myers<'a> {
         let b_size = self.b.len() as isize;
         for (prev_x, prev_y, x, y) in self.backtrack() {
             let a_line = if prev_x < a_size {
-                self.a[prev_x as usize]
+                Some(self.a[prev_x as usize].clone())
             } else {
-                ""
+                None
             };
             let b_line = if prev_y < b_size {
-                self.b[prev_y as usize]
+                Some(self.b[prev_y as usize].clone())
             } else {
-                ""
+                None
             };
 
             if x == prev_x {
-                diff.push(Edit::Insert(b_line.to_owned()));
+                diff.push(Edit::insert(None, b_line));
             } else if y == prev_y {
-                diff.push(Edit::Delete(a_line.to_owned()));
+                diff.push(Edit::delete(a_line, None));
             } else {
-                diff.push(Edit::Equals(a_line.to_owned()));
+                diff.push(Edit::equals(a_line, b_line));
             }
         }
         diff.reverse();
@@ -127,7 +141,7 @@ impl<'a> Myers<'a> {
         let mut x = opt_x.unwrap_or(0);
 
         // a diagonal move: if both sides are the same we can keep moving without bumping the score
-        while x < n && y < m && self.a[x as usize] == self.b[y as usize] {
+        while x < n && y < m && self.a[x as usize].content == self.b[y as usize].content {
             x += 1;
             y += 1;
         }
@@ -145,6 +159,8 @@ impl<'a> Myers<'a> {
 mod tests {
     use super::Myers;
     use crate::diff::edit::Edit;
+    use crate::diff::edit::EditKind::{Delete, Equals, Insert};
+    use crate::diff::edit::Line;
     use crate::diff::myers_graph::MyersGraph;
 
     #[test]
@@ -309,15 +325,90 @@ mod tests {
         let vals = algo.diff();
 
         let expected = vec![
-            Edit::Delete(String::from("A")),
-            Edit::Delete(String::from("B")),
-            Edit::Equals(String::from("C")),
-            Edit::Insert(String::from("B")),
-            Edit::Equals(String::from("A")),
-            Edit::Equals(String::from("B")),
-            Edit::Delete(String::from("B")),
-            Edit::Equals(String::from("A")),
-            Edit::Insert(String::from("C")),
+            Edit {
+                kind: Delete,
+                a: Some(Line {
+                    content: "A".to_owned(),
+                    number: 0,
+                }),
+                b: None,
+            },
+            Edit {
+                kind: Delete,
+                a: Some(Line {
+                    content: "B".to_owned(),
+                    number: 1,
+                }),
+                b: None,
+            },
+            Edit {
+                kind: Equals,
+                a: Some(Line {
+                    content: "C".to_owned(),
+                    number: 2,
+                }),
+                b: Some(Line {
+                    content: "C".to_owned(),
+                    number: 0,
+                }),
+            },
+            Edit {
+                kind: Insert,
+                a: None,
+                b: Some(Line {
+                    content: "B".to_owned(),
+                    number: 1,
+                }),
+            },
+            Edit {
+                kind: Equals,
+                a: Some(Line {
+                    content: "A".to_owned(),
+                    number: 3,
+                }),
+                b: Some(Line {
+                    content: "A".to_owned(),
+                    number: 2,
+                }),
+            },
+            Edit {
+                kind: Equals,
+                a: Some(Line {
+                    content: "B".to_owned(),
+                    number: 4,
+                }),
+                b: Some(Line {
+                    content: "B".to_owned(),
+                    number: 3,
+                }),
+            },
+            Edit {
+                kind: Delete,
+                a: Some(Line {
+                    content: "B".to_owned(),
+                    number: 5,
+                }),
+                b: None,
+            },
+            Edit {
+                kind: Equals,
+                a: Some(Line {
+                    content: "A".to_owned(),
+                    number: 6,
+                }),
+                b: Some(Line {
+                    content: "A".to_owned(),
+                    number: 4,
+                }),
+            },
+            Edit {
+                kind: Insert,
+                a: None,
+                b: Some(Line {
+                    content: "C".to_owned(),
+                    number: 5,
+                }),
+            },
         ];
         assert_eq!(vals, expected)
     }
@@ -330,36 +421,267 @@ mod tests {
         let vals = algo.diff();
 
         let expected = vec![
-            Edit::Insert(String::from("C")),
-            Edit::Insert(String::from("B")),
-            Edit::Equals(String::from("A")),
-            Edit::Equals(String::from("B")),
-            Edit::Insert(String::from("A")),
-            Edit::Equals(String::from("C")),
-            Edit::Insert(String::from("C")),
-            Edit::Insert(String::from("B")),
-            Edit::Equals(String::from("A")),
-            Edit::Equals(String::from("B")),
-            Edit::Insert(String::from("A")),
-            Edit::Insert(String::from("C")),
-            Edit::Insert(String::from("C")),
-            Edit::Equals(String::from("B")),
-            Edit::Equals(String::from("A")),
-            Edit::Insert(String::from("B")),
-            Edit::Insert(String::from("A")),
-            Edit::Insert(String::from("C")),
-            Edit::Insert(String::from("C")),
-            Edit::Insert(String::from("B")),
-            Edit::Insert(String::from("A")),
-            Edit::Insert(String::from("B")),
-            Edit::Insert(String::from("A")),
-            Edit::Insert(String::from("C")),
-            Edit::Insert(String::from("C")),
-            Edit::Insert(String::from("B")),
-            Edit::Insert(String::from("A")),
-            Edit::Insert(String::from("B")),
-            Edit::Insert(String::from("A")),
-            Edit::Insert(String::from("C")),
+            Edit {
+                kind: Insert,
+                a: None,
+                b: Some(Line {
+                    content: "C".to_owned(),
+                    number: 0,
+                }),
+            },
+            Edit {
+                kind: Insert,
+                a: None,
+                b: Some(Line {
+                    content: "B".to_owned(),
+                    number: 1,
+                }),
+            },
+            Edit {
+                kind: Equals,
+                a: Some(Line {
+                    content: "A".to_owned(),
+                    number: 0,
+                }),
+                b: Some(Line {
+                    content: "A".to_owned(),
+                    number: 2,
+                }),
+            },
+            Edit {
+                kind: Equals,
+                a: Some(Line {
+                    content: "B".to_owned(),
+                    number: 1,
+                }),
+                b: Some(Line {
+                    content: "B".to_owned(),
+                    number: 3,
+                }),
+            },
+            Edit {
+                kind: Insert,
+                a: None,
+                b: Some(Line {
+                    content: "A".to_owned(),
+                    number: 4,
+                }),
+            },
+            Edit {
+                kind: Equals,
+                a: Some(Line {
+                    content: "C".to_owned(),
+                    number: 2,
+                }),
+                b: Some(Line {
+                    content: "C".to_owned(),
+                    number: 5,
+                }),
+            },
+            Edit {
+                kind: Insert,
+                a: None,
+                b: Some(Line {
+                    content: "C".to_owned(),
+                    number: 6,
+                }),
+            },
+            Edit {
+                kind: Insert,
+                a: None,
+                b: Some(Line {
+                    content: "B".to_owned(),
+                    number: 7,
+                }),
+            },
+            Edit {
+                kind: Equals,
+                a: Some(Line {
+                    content: "A".to_owned(),
+                    number: 3,
+                }),
+                b: Some(Line {
+                    content: "A".to_owned(),
+                    number: 8,
+                }),
+            },
+            Edit {
+                kind: Equals,
+                a: Some(Line {
+                    content: "B".to_owned(),
+                    number: 4,
+                }),
+                b: Some(Line {
+                    content: "B".to_owned(),
+                    number: 9,
+                }),
+            },
+            Edit {
+                kind: Insert,
+                a: None,
+                b: Some(Line {
+                    content: "A".to_owned(),
+                    number: 10,
+                }),
+            },
+            Edit {
+                kind: Insert,
+                a: None,
+                b: Some(Line {
+                    content: "C".to_owned(),
+                    number: 11,
+                }),
+            },
+            Edit {
+                kind: Insert,
+                a: None,
+                b: Some(Line {
+                    content: "C".to_owned(),
+                    number: 12,
+                }),
+            },
+            Edit {
+                kind: Equals,
+                a: Some(Line {
+                    content: "B".to_owned(),
+                    number: 5,
+                }),
+                b: Some(Line {
+                    content: "B".to_owned(),
+                    number: 13,
+                }),
+            },
+            Edit {
+                kind: Equals,
+                a: Some(Line {
+                    content: "A".to_owned(),
+                    number: 6,
+                }),
+                b: Some(Line {
+                    content: "A".to_owned(),
+                    number: 14,
+                }),
+            },
+            Edit {
+                kind: Insert,
+                a: None,
+                b: Some(Line {
+                    content: "B".to_owned(),
+                    number: 15,
+                }),
+            },
+            Edit {
+                kind: Insert,
+                a: None,
+                b: Some(Line {
+                    content: "A".to_owned(),
+                    number: 16,
+                }),
+            },
+            Edit {
+                kind: Insert,
+                a: None,
+                b: Some(Line {
+                    content: "C".to_owned(),
+                    number: 17,
+                }),
+            },
+            Edit {
+                kind: Insert,
+                a: None,
+                b: Some(Line {
+                    content: "C".to_owned(),
+                    number: 18,
+                }),
+            },
+            Edit {
+                kind: Insert,
+                a: None,
+                b: Some(Line {
+                    content: "B".to_owned(),
+                    number: 19,
+                }),
+            },
+            Edit {
+                kind: Insert,
+                a: None,
+                b: Some(Line {
+                    content: "A".to_owned(),
+                    number: 20,
+                }),
+            },
+            Edit {
+                kind: Insert,
+                a: None,
+                b: Some(Line {
+                    content: "B".to_owned(),
+                    number: 21,
+                }),
+            },
+            Edit {
+                kind: Insert,
+                a: None,
+                b: Some(Line {
+                    content: "A".to_owned(),
+                    number: 22,
+                }),
+            },
+            Edit {
+                kind: Insert,
+                a: None,
+                b: Some(Line {
+                    content: "C".to_owned(),
+                    number: 23,
+                }),
+            },
+            Edit {
+                kind: Insert,
+                a: None,
+                b: Some(Line {
+                    content: "C".to_owned(),
+                    number: 24,
+                }),
+            },
+            Edit {
+                kind: Insert,
+                a: None,
+                b: Some(Line {
+                    content: "B".to_owned(),
+                    number: 25,
+                }),
+            },
+            Edit {
+                kind: Insert,
+                a: None,
+                b: Some(Line {
+                    content: "A".to_owned(),
+                    number: 26,
+                }),
+            },
+            Edit {
+                kind: Insert,
+                a: None,
+                b: Some(Line {
+                    content: "B".to_owned(),
+                    number: 27,
+                }),
+            },
+            Edit {
+                kind: Insert,
+                a: None,
+                b: Some(Line {
+                    content: "A".to_owned(),
+                    number: 28,
+                }),
+            },
+            Edit {
+                kind: Insert,
+                a: None,
+                b: Some(Line {
+                    content: "C".to_owned(),
+                    number: 29,
+                }),
+            },
         ];
         assert_eq!(vals, expected)
     }

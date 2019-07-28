@@ -11,11 +11,13 @@ uuid = {version = "*", features = ["v4"]}
 flate2 = "*"
 byteorder = "*"
 failure = "0.1.5"
+errno = "0.2"
 libc = "0.2"
 indexmap = "*"
 fs2 = "*"
 hex = "*"
-colored = "1.8"
+colored = { git = "https://github.com/vn971/colored.git"}
+atty = "*"
 
 [dev-dependencies]
 lazy_static = "*"

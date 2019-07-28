@@ -191,7 +191,6 @@ impl Index {
         digest.update(&data);
         Ok(())
     }
-
 }
 
 #[cfg(test)]
