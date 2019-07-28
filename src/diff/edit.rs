@@ -31,12 +31,12 @@ impl fmt::Display for Edit {
             }
             EditKind::Insert => {
                 if let Some(ref l) = self.b {
-                    write!(f, "{}", format!("+ {}", l.content).green())?;
+                    write!(f, "{}", format!("+{}", l.content).green())?;
                 }
             }
             EditKind::Delete => {
                 if let Some(ref l) = self.a {
-                    write!(f, "{}", format!("- {}", l.content).red())?;
+                    write!(f, "{}", format!("-{}", l.content).red())?;
                 }
             }
         }
