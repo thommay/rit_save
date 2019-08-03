@@ -1,12 +1,12 @@
 use crate::author::Author;
 use crate::database::Storable;
-use failure::Error;
 use std::collections::HashMap;
+use std::convert::TryFrom;
 use std::fmt::Write;
 
 #[derive(Debug)]
 pub struct Commit {
-    parent: Option<String>,
+    pub parent: Option<String>,
     pub tree: String,
     author: Author,
     message: String,
@@ -23,8 +23,15 @@ impl Commit {
             message,
         }
     }
+    pub fn title_line(&self) -> Option<String> {
+        self.message.lines().nth(0).map(String::from)
+    }
+}
 
-    pub fn from(data: Vec<u8>) -> Result<Self, Error> {
+impl TryFrom<Vec<u8>> for Commit {
+    type Error = failure::Error;
+
+    fn try_from(data: Vec<u8>) -> Result<Self, Self::Error> {
         let mut headers = HashMap::new();
         let data = String::from_utf8(data)?;
         let mut data = data.lines();

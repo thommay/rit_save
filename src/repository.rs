@@ -5,17 +5,18 @@ use crate::tree::TreeEntry;
 use crate::{commit, database, index, refs, tree, workspace, BoxResult};
 use failure::Error;
 use std::collections::BTreeMap;
+use std::convert::TryFrom;
 use std::fmt;
 use std::fs::Metadata;
 use std::path::{Path, PathBuf};
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Changed {
     Index,
     Workspace,
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Status {
     Deleted,
     Modified,
@@ -38,11 +39,12 @@ impl fmt::Display for Status {
     }
 }
 
+#[derive(Debug)]
 pub struct Repository {
     pub workspace: workspace::Workspace,
     pub index: index::Index,
     pub database: database::Database,
-    refs: refs::Refs,
+    pub refs: refs::Refs,
     pub index_changes: BTreeMap<String, Status>,
     pub workspace_changes: BTreeMap<String, Status>,
     pub changed: Vec<String>,
@@ -221,7 +223,7 @@ impl Repository {
                 }
             }
         } else if kind == "commit" {
-            let commit = commit::Commit::from(data)?;
+            let commit = commit::Commit::try_from(data)?;
             let tree = commit.tree;
             self.read_tree(tree.as_ref(), path)?;
         }
