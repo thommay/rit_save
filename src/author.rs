@@ -5,11 +5,11 @@ use std::convert::TryFrom;
 pub struct Author {
     name: String,
     email: String,
-    time: DateTime<Utc>,
+    time: DateTime<Local>,
 }
 
 impl Author {
-    pub fn new(name: String, email: String, time: DateTime<Utc>) -> Self {
+    pub fn new(name: String, email: String, time: DateTime<Local>) -> Self {
         Author { name, email, time }
     }
 }
@@ -30,8 +30,11 @@ impl TryFrom<&str> for Author {
             .next()
             .expect("failed to get email")
             .trim_matches(|c| c == '<' || c == '>');
-        let time = matches.next().expect("failed to get time").parse::<i64>()?;
-        let time = Utc.timestamp(time, 0);
+        let time = matches.collect::<Vec<&str>>().join(" ");
+        dbg!(&time);
+        let time = Local
+            .datetime_from_str(time.as_ref(), "%s %z")
+            .unwrap_or(Local::now());
         Ok(Self {
             name,
             email: String::from(email),
@@ -44,10 +47,10 @@ impl std::fmt::Display for Author {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(
             f,
-            "{} <{}> {} +0000",
+            "{} <{}> {}",
             self.name,
             self.email,
-            self.time.timestamp()
+            self.time.format("%s %z")
         )
     }
 }

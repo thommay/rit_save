@@ -5,7 +5,7 @@ use crate::index::Index;
 use crate::refs::Refs;
 use crate::tree::Tree;
 use crate::BoxResult;
-use chrono::Utc;
+use chrono::Local;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use std::io::Read;
 
@@ -30,7 +30,7 @@ pub fn exec(matches: &ArgMatches) -> BoxResult<()> {
 
     let name = std::env::var("GIT_AUTHOR_NAME")?;
     let email = std::env::var("GIT_AUTHOR_EMAIL")?;
-    let author = Author::new(name, email, Utc::now());
+    let author = Author::new(name, email, Local::now());
 
     let mut msg = String::new();
     let message = if matches.is_present("msg") {
