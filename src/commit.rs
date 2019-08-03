@@ -56,7 +56,7 @@ impl TryFrom<Vec<u8>> for Commit {
             .to_string();
         let author = headers
             .get("author")
-            .map(|x| Author::from(x))
+            .map(|x| Author::try_from(x.as_ref()))
             .expect("failed to read author from commit")
             .unwrap();
         Ok(Self {

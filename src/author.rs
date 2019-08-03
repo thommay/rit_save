@@ -1,22 +1,23 @@
-use failure::Error;
+use chrono::prelude::*;
+use std::convert::TryFrom;
 
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct Author {
     name: String,
     email: String,
-    time: u64,
+    time: DateTime<Utc>,
 }
 
 impl Author {
-    pub fn new(name: String, email: String, t: std::time::SystemTime) -> Self {
-        let time = t
-            .duration_since(std::time::SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
+    pub fn new(name: String, email: String, time: DateTime<Utc>) -> Self {
         Author { name, email, time }
     }
+}
 
-    pub fn from(line: &str) -> Result<Self, Error> {
+impl TryFrom<&str> for Author {
+    type Error = failure::Error;
+
+    fn try_from(line: &str) -> Result<Self, Self::Error> {
         let mut parts = line.split('<');
         let name = parts
             .next()
@@ -29,7 +30,8 @@ impl Author {
             .next()
             .expect("failed to get email")
             .trim_matches(|c| c == '<' || c == '>');
-        let time = matches.next().expect("failed to get time").parse::<u64>()?;
+        let time = matches.next().expect("failed to get time").parse::<i64>()?;
+        let time = Utc.timestamp(time, 0);
         Ok(Self {
             name,
             email: String::from(email),
@@ -40,6 +42,12 @@ impl Author {
 
 impl std::fmt::Display for Author {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{} <{}> {} +0000", self.name, self.email, self.time)
+        write!(
+            f,
+            "{} <{}> {} +0000",
+            self.name,
+            self.email,
+            self.time.timestamp()
+        )
     }
 }
