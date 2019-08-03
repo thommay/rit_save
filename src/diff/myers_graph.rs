@@ -12,13 +12,10 @@ impl MyersGraph {
         Self { array, max }
     }
 
+    #[cfg(test)]
     pub fn from(array: Vec<Option<isize>>) -> Self {
         let max = ((array.len() - 1) / 2) as isize;
         Self { array, max }
-    }
-
-    pub fn len(&self) -> usize {
-        self.array.len()
     }
 }
 

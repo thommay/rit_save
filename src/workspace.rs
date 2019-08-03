@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 
 const IGNORED: [&str; 6] = [".", "..", ".git", "target", ".idea", "cmake-build-debug"];
 
+#[derive(Clone, Debug)]
 pub struct Workspace {
     pub path: PathBuf,
 }

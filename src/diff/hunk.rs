@@ -44,7 +44,7 @@ impl Hunk {
         }
     }
 
-    fn build(a: usize, b: usize, edits: &Vec<Edit>, offset: &mut i32) -> Hunk {
+    fn build(a: usize, b: usize, edits: &[Edit], offset: &mut i32) -> Hunk {
         let mut e = vec![];
         let mut counter = -1;
 
