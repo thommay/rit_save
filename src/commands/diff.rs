@@ -1,4 +1,3 @@
-use crate::commands::pager;
 use crate::database::{Blob, Storable};
 use crate::diff::hunk::Hunk;
 use crate::diff::myers::Myers;
