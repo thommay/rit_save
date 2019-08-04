@@ -12,6 +12,10 @@ impl Author {
     pub fn new(name: String, email: String, time: DateTime<Local>) -> Self {
         Author { name, email, time }
     }
+
+    pub fn short_date(&self) -> String {
+        self.time.format("%Y-%m-%d").to_string()
+    }
 }
 
 impl TryFrom<&str> for Author {
@@ -30,11 +34,11 @@ impl TryFrom<&str> for Author {
             .next()
             .expect("failed to get email")
             .trim_matches(|c| c == '<' || c == '>');
+
         let time = matches.collect::<Vec<&str>>().join(" ");
-        dbg!(&time);
         let time = Local
             .datetime_from_str(time.as_ref(), "%s %z")
-            .unwrap_or(Local::now());
+            .unwrap_or_else(|_| Local::now());
         Ok(Self {
             name,
             email: String::from(email),

@@ -18,9 +18,11 @@ fs2 = "*"
 hex = "*"
 colored = { git = "https://github.com/vn971/colored.git"}
 atty = "*"
+regex = "1"
+lazy_static = "*"
+chrono = "0.4"
 
 [dev-dependencies]
-lazy_static = "*"
 assert_cmd = "*"
 predicates = "1"
 tempdir = "0.3.7"

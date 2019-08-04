@@ -95,7 +95,7 @@ impl Differ for Repository {
         if let Some(entry) = self.index.get_entry(path) {
             let mode = String::from(&entry.mode());
             let oid = String::from(&entry.oid);
-            let oid = self.database.truncate_oid(oid.as_ref()).unwrap_or(oid);
+            let oid = self.database.truncate_oid(oid.as_ref());
             let path = Path::new(path).to_path_buf();
             let (_, _, data) = self.database.read_object(&entry.oid)?;
             let blob = Blob::try_from(data)?;
@@ -114,7 +114,7 @@ impl Differ for Repository {
         if let Some(entry) = self.tree.get(Path::new(path)) {
             let mode = String::from(&entry.mode);
             let oid = String::from(&entry.oid);
-            let oid = self.database.truncate_oid(oid.as_ref()).unwrap_or(oid);
+            let oid = self.database.truncate_oid(oid.as_ref());
             let path = Path::new(path).to_path_buf();
             let (_, _, data) = self.database.read_object(&entry.oid)?;
             let blob = Blob::try_from(data)?;
@@ -133,7 +133,7 @@ impl Differ for Repository {
         if let Ok(file) = self.workspace.read_file(path) {
             let blob = Blob::new(file);
             let oid = blob.oid();
-            let oid = self.database.truncate_oid(oid.as_ref()).unwrap_or(oid);
+            let oid = self.database.truncate_oid(oid.as_ref());
             let stats = self
                 .stats
                 .get(Path::new(path))
@@ -154,10 +154,7 @@ impl Differ for Repository {
 
     fn get_deleted_file(&self) -> BoxResult<Target> {
         let path = Path::new(NILL_PATH).to_path_buf();
-        let oid = self
-            .database
-            .truncate_oid(NILL_OID)
-            .unwrap_or_else(|| String::from(NILL_OID));
+        let oid = self.database.truncate_oid(NILL_OID);
         Ok(Target {
             path,
             oid,

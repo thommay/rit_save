@@ -11,6 +11,7 @@ pub mod index;
 pub mod lockfile;
 pub mod refs;
 pub mod repository;
+pub mod revision;
 pub mod tree;
 pub mod utilities;
 pub mod workspace;

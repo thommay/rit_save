@@ -8,7 +8,7 @@ use std::fmt::Write;
 pub struct Commit {
     pub parent: Option<String>,
     pub tree: String,
-    author: Author,
+    pub(crate) author: Author,
     message: String,
 }
 

@@ -1,5 +1,5 @@
 use crate::database::marker::{Kind, Marker};
-use crate::database::{Blob, Storable};
+use crate::database::{Blob, ObjectKind, Storable};
 use crate::index::entry::Entry;
 use crate::tree::TreeEntry;
 use crate::{commit, database, index, refs, tree, workspace, BoxResult};
@@ -209,23 +209,27 @@ impl Repository {
 
     fn read_tree(&mut self, oid: &str, path: PathBuf) -> BoxResult<()> {
         let (kind, _size, data) = self.database.read_object(oid)?;
-        if kind == "tree" {
-            let tree = tree::Tree::from(data)?;
-            for (name, entry) in tree.entries {
-                let p = path.join(name);
-                if let TreeEntry::Marker(entry) = entry {
-                    match entry.kind() {
-                        Kind::Entry => {
-                            self.tree.insert(p, entry);
-                        }
-                        Kind::Tree => self.read_tree(entry.oid.as_ref(), p)?,
-                    };
+        match kind {
+            ObjectKind::Tree => {
+                let tree = tree::Tree::from(data)?;
+                for (name, entry) in tree.entries {
+                    let p = path.join(name);
+                    if let TreeEntry::Marker(entry) = entry {
+                        match entry.kind() {
+                            Kind::Entry => {
+                                self.tree.insert(p, entry);
+                            }
+                            Kind::Tree => self.read_tree(entry.oid.as_ref(), p)?,
+                        };
+                    }
                 }
             }
-        } else if kind == "commit" {
-            let commit = commit::Commit::try_from(data)?;
-            let tree = commit.tree;
-            self.read_tree(tree.as_ref(), path)?;
+            ObjectKind::Commit => {
+                let commit = commit::Commit::try_from(data)?;
+                let tree = commit.tree;
+                self.read_tree(tree.as_ref(), path)?;
+            }
+            _ => unreachable!(),
         }
         Ok(())
     }

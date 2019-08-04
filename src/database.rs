@@ -10,7 +10,52 @@ use std::path::{Path, PathBuf};
 
 pub mod marker;
 
-#[derive(Default, Debug)]
+//macro_rules! parsed_kind {
+//    ($knd:ty: $($k:ty => $s:ident),+) => {
+//        #[derive(Clone, Debug)]
+//        pub enum $knd {}
+//    };
+//}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum ObjectKind {
+    Commit,
+    Tree,
+    Blob,
+}
+
+impl std::fmt::Display for ObjectKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        write!(
+            f,
+            "{}",
+            match *self {
+                ObjectKind::Commit => "commit",
+                ObjectKind::Tree => "tree",
+                ObjectKind::Blob => "blob",
+            }
+        )
+    }
+}
+
+impl ObjectKind {
+    pub fn parse(k: &str) -> Self {
+        match k {
+            "commit" => ObjectKind::Commit,
+            "tree" => ObjectKind::Tree,
+            _ => ObjectKind::Blob,
+        }
+    }
+
+    pub fn is_commit(&self) -> bool {
+        match *self {
+            ObjectKind::Commit => true,
+            _ => false,
+        }
+    }
+}
+
+#[derive(Clone, Default, Debug)]
 pub struct Database {
     path: PathBuf,
 }
@@ -22,7 +67,7 @@ impl Database {
         }
     }
 
-    pub fn read_object(&self, oid: &str) -> Result<(String, u64, Vec<u8>), Error> {
+    pub fn read_object(&self, oid: &str) -> Result<(ObjectKind, u64, Vec<u8>), Error> {
         let (_, path) = self.object_path(oid)?;
         if !path.exists() {
             return Err(format_err!("object {} does not exist", oid));
@@ -38,6 +83,7 @@ impl Database {
         cursor.read_until(b' ', &mut tp)?;
         let tp = String::from_utf8(tp)?;
         let tp = tp.trim_end_matches(' ');
+        let kind = ObjectKind::parse(tp);
 
         let mut size = vec![];
         cursor.read_until(b'\0', &mut size)?;
@@ -48,7 +94,7 @@ impl Database {
         let mut out = vec![];
         cursor.read_to_end(&mut out)?;
 
-        Ok((tp.to_string(), size, out))
+        Ok((kind, size, out))
     }
 
     pub fn store<T>(&self, blob: T) -> Result<(), Error>
@@ -60,8 +106,32 @@ impl Database {
         self.write(oid, content)
     }
 
-    pub fn truncate_oid(&self, oid: &str) -> Option<String> {
-        oid.get(0..=6).map(String::from)
+    pub fn truncate_oid(&self, oid: &str) -> String {
+        oid.get(0..=6)
+            .map(String::from)
+            .unwrap_or_else(|| String::from(oid))
+    }
+
+    pub fn prefix_match(&self, name: &str) -> Result<Vec<String>, Error> {
+        if let Ok((dir, _)) = self.object_path(name) {
+            let prefix = &dir.file_name().unwrap().to_str().unwrap();
+            let entries = std::fs::read_dir(&dir)?
+                .map(|f| {
+                    let entry = f.unwrap();
+                    let n = entry.file_name();
+                    let n = n.to_str().expect("failed to get name");
+                    format!("{}{}", prefix, n)
+                })
+                .collect::<Vec<String>>();
+
+            let set = entries
+                .iter()
+                .filter(|&e| e.starts_with(name))
+                .map(String::from)
+                .collect::<Vec<String>>();
+            return Ok(set);
+        }
+        Ok(vec![])
     }
 
     fn write(&self, oid: String, content: Vec<u8>) -> Result<(), Error> {
