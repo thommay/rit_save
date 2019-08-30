@@ -1,3 +1,4 @@
+use crate::database::tree_diff::{TreeDiff, TreeDifference};
 use failure::format_err;
 use failure::Error;
 use flate2::bufread::ZlibDecoder;
@@ -9,6 +10,7 @@ use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 
 pub mod marker;
+pub mod tree_diff;
 
 //macro_rules! parsed_kind {
 //    ($knd:ty: $($k:ty => $s:ident),+) => {
@@ -132,6 +134,12 @@ impl Database {
             return Ok(set);
         }
         Ok(vec![])
+    }
+
+    pub fn tree_diff(&self, a: Option<String>, b: Option<String>) -> TreeDifference {
+        let mut td = TreeDiff::new(self);
+        td.compare_oids(&a, &b, Some(&self.path));
+        td.changes
     }
 
     fn write(&self, oid: String, content: Vec<u8>) -> Result<(), Error> {

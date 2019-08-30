@@ -1,29 +1,46 @@
-use crate::database::marker::Marker;
+use crate::database::marker::{Kind, Marker};
 use crate::database::Storable;
 use crate::index::entry::Entry;
 use crate::utilities::pack_data;
-use failure::Error;
 use indexmap::IndexMap;
+use std::convert::TryFrom;
 use std::io::{BufRead, Read, Write};
 use std::path::Component;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Tree {
     pub entries: IndexMap<String, TreeEntry>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum TreeEntry {
     Entry(Entry),
     Tree(Tree),
     Marker(Marker),
 }
+impl TreeEntry {
+    pub fn kind(&self) -> Kind {
+        match self {
+            TreeEntry::Entry(_) => Kind::Entry,
+            TreeEntry::Tree(_) => Kind::Tree,
+            TreeEntry::Marker(m) => m.kind(),
+        }
+    }
+
+    pub fn is_tree(&self) -> bool {
+        self.kind() == Kind::Tree
+    }
+}
 
 impl Tree {
-    pub fn build(entries: Vec<Entry>) -> Self {
-        let mut root = Tree {
+    pub fn new() -> Self {
+        Self {
             entries: IndexMap::new(),
-        };
+        }
+    }
+
+    pub fn build(entries: Vec<Entry>) -> Self {
+        let mut root = Self::new();
         for entry in entries {
             let mut parts: Vec<Component> = entry.path.components().collect();
             let name = parts.pop().unwrap().as_os_str().to_str().unwrap();
@@ -32,6 +49,9 @@ impl Tree {
         root
     }
 
+    pub fn get_entry(&self, key: &str) -> Option<&TreeEntry> {
+        self.entries.get(key)
+    }
     fn add_entry(&mut self, parts: Vec<Component>, name: &str, entry: Entry) {
         if let Some((first, rest)) = parts.split_first() {
             if first == &Component::CurDir && rest.is_empty() {
@@ -61,6 +81,10 @@ impl Tree {
         "40000".into()
     }
 
+    pub fn kind(&self) -> Kind {
+        Kind::Tree
+    }
+
     pub fn traverse<T>(&self, f: &T)
     where
         T: Fn(Tree),
@@ -72,8 +96,12 @@ impl Tree {
         }
         f(self.clone());
     }
+}
 
-    pub fn from(data: Vec<u8>) -> Result<Self, Error> {
+impl TryFrom<Vec<u8>> for Tree {
+    type Error = failure::Error;
+
+    fn try_from(data: Vec<u8>) -> Result<Self, Self::Error> {
         let mut data = std::io::Cursor::new(data);
         let len = data.get_ref().len();
         let mut entries = IndexMap::new();

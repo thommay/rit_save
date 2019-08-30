@@ -1,14 +1,14 @@
 use crate::utilities::pack_data;
 use std::path::{Path, PathBuf};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Marker {
     pub name: PathBuf,
     pub mode: String,
     pub oid: String,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Kind {
     Entry,
     Tree,
@@ -29,6 +29,10 @@ impl Marker {
         } else {
             Kind::Entry
         }
+    }
+
+    pub fn is_tree(&self) -> bool {
+        self.kind() == Kind::Tree
     }
 
     pub fn filename(&self) -> &str {

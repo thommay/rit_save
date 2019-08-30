@@ -4,7 +4,7 @@ use rit::utilities::stat_file;
 use clap::App;
 use clap::ArgMatches;
 use clap::{Arg, SubCommand};
-use rit::commands::{branch, commit, diff, status};
+use rit::commands::{branch, checkout, commit, diff, status};
 use rit::index::Index;
 use rit::workspace::Workspace;
 use rit::BoxResult;
@@ -22,6 +22,7 @@ fn main() -> BoxResult<()> {
             ),
         )
         .subcommand(branch::cli())
+        .subcommand(checkout::cli())
         .subcommand(commit::cli())
         .subcommand(diff::cli())
         .subcommand(
@@ -33,6 +34,7 @@ fn main() -> BoxResult<()> {
     match app.subcommand() {
         ("add", Some(m)) => git_add(m),
         ("branch", Some(m)) => branch::exec(m),
+        ("checkout", Some(m)) => checkout::exec(m),
         ("commit", Some(m)) => commit::exec(m),
         ("diff", Some(m)) => diff::exec(m),
         ("init", Some(m)) => git_init(m),

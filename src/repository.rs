@@ -1,6 +1,8 @@
 use crate::database::marker::{Kind, Marker};
-use crate::database::{Blob, ObjectKind, Storable};
+use crate::database::tree_diff::TreeDifference;
+use crate::database::{Blob, Database, ObjectKind, Storable};
 use crate::index::entry::Entry;
+use crate::repository::migration::Migration;
 use crate::tree::TreeEntry;
 use crate::{commit, database, index, refs, tree, workspace, BoxResult};
 use failure::Error;
@@ -10,6 +12,7 @@ use std::fmt;
 use std::fs::Metadata;
 use std::path::{Path, PathBuf};
 
+pub mod migration;
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Changed {
     Index,
@@ -107,6 +110,10 @@ impl Repository {
 
     pub fn commit_changes(self) -> Result<(), Error> {
         self.index.write_updates()
+    }
+
+    pub fn migration<'a>(&self, t: TreeDifference) -> Migration {
+        Migration::new(t)
     }
 
     fn record_change(&mut self, name: String, target: Changed, status: Status) {
@@ -211,7 +218,7 @@ impl Repository {
         let (kind, _size, data) = self.database.read_object(oid)?;
         match kind {
             ObjectKind::Tree => {
-                let tree = tree::Tree::from(data)?;
+                let tree = tree::Tree::try_from(data)?;
                 for (name, entry) in tree.entries {
                     let p = path.join(name);
                     if let TreeEntry::Marker(entry) = entry {

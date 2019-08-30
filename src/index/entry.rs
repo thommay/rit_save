@@ -1,3 +1,4 @@
+use crate::database::marker::Kind;
 use crate::utilities::{decode_hex, is_executable, pack_data};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use failure::Error;
@@ -146,6 +147,10 @@ impl Entry {
         Entry::mode_from_stat(self.mode)
     }
 
+    pub fn oid(&self) -> &str {
+        self.oid.as_str()
+    }
+
     pub fn filename(&self) -> &str {
         self.path.file_name().unwrap().to_str().unwrap()
     }
@@ -158,6 +163,10 @@ impl Entry {
 
     pub fn parent_directories(&self) -> Ancestors {
         self.path.parent().unwrap().ancestors()
+    }
+
+    pub fn kind(&self) -> Kind {
+        Kind::Entry
     }
 
     pub fn mode_from_stat(mode: u32) -> String {
