@@ -60,7 +60,7 @@ impl<'a> TreeDiff<'a> {
 
             let a_oid = TreeDiff::get_tree_oid(&entry);
             let b_oid = if let Some(other) = other.clone() {
-                if &entry == &other {
+                if entry == other {
                     continue;
                 }
                 TreeDiff::get_tree_oid(&other)

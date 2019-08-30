@@ -1,6 +1,6 @@
 use crate::database::marker::{Kind, Marker};
 use crate::database::tree_diff::TreeDifference;
-use crate::database::{Blob, Database, ObjectKind, Storable};
+use crate::database::{Blob, ObjectKind, Storable};
 use crate::index::entry::Entry;
 use crate::repository::migration::Migration;
 use crate::tree::TreeEntry;
@@ -112,7 +112,7 @@ impl Repository {
         self.index.write_updates()
     }
 
-    pub fn migration<'a>(&self, t: TreeDifference) -> Migration {
+    pub fn migration(&self, t: TreeDifference) -> Migration {
         Migration::new(t)
     }
 

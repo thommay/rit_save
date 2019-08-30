@@ -128,7 +128,7 @@ impl Entry {
             is_executable(stat.mode()) == is_executable(self.mode)
                 && self.size == stat.size() as u32
         } else {
-            return false;
+            false
         }
     }
 
@@ -139,7 +139,7 @@ impl Entry {
                 && self.mtime_ns == stat.mtime_nsec() as u32
                 && self.mtime == stat.mtime() as u32
         } else {
-            return false;
+            false
         }
     }
 

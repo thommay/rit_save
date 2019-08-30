@@ -31,12 +31,11 @@ pub fn exec(matches: &ArgMatches) -> BoxResult<()> {
     let tree_diff = repository.database.tree_diff(head, branch_oid);
     let migration = repository.migration(tree_diff).plan_changes();
 
-    match repository
+    if let Err(e) = repository
         .workspace
         .apply_migration(migration, &repository.database)
     {
-        Err(e) => eprintln!("{}", e),
-        _ => (),
+        eprintln!("{}", e)
     };
 
     repository.commit_changes()?;

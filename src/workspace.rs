@@ -144,7 +144,7 @@ impl Workspace {
                 .write(true)
                 .create_new(true)
                 .open(&path)?;
-            file.write(blob.data.as_bytes())?;
+            file.write_all(blob.data.as_bytes())?;
             let mode = mode.parse::<u32>()?;
             let perms = Permissions::from_mode(mode);
             file.set_permissions(perms)?;

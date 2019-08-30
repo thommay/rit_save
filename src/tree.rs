@@ -7,7 +7,7 @@ use std::convert::TryFrom;
 use std::io::{BufRead, Read, Write};
 use std::path::Component;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Tree {
     pub entries: IndexMap<String, TreeEntry>,
 }
