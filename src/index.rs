@@ -1,5 +1,7 @@
 use crate::index::entry::Entry;
 use crate::lockfile::Lockfile;
+use crate::repository::migration::{Action, MigrationChanges};
+use crate::workspace::Workspace;
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use failure::Error;
 use fs2::FileExt;
@@ -40,6 +42,21 @@ impl Index {
         let entry = Entry::new(path, stat, oid);
 
         self.add_entry(entry);
+    }
+
+    pub fn apply_migration(
+        &mut self,
+        changes: &MigrationChanges,
+        workspace: &Workspace,
+    ) -> Result<(), Error> {
+        if let Some(removals) = changes.get(&Action::Remove) {
+            for (path, _) in removals {
+                self.remove(path.to_str().unwrap());
+            }
+        };
+        self.apply_updates(&changes, Action::Create, workspace)?;
+        self.apply_updates(&changes, Action::Update, workspace)?;
+        Ok(())
     }
 
     pub fn entries(&self) -> Vec<Entry> {
@@ -95,6 +112,27 @@ impl Index {
 
         self.entries.insert(pth, entry);
         self.changed = true;
+    }
+
+    fn apply_updates(
+        &mut self,
+        changes: &MigrationChanges,
+        action: Action,
+        workspace: &Workspace,
+    ) -> Result<(), Error> {
+        let list = match changes.get(&action) {
+            None => return Ok(()),
+            Some(l) => l,
+        };
+        for (path, entry) in list {
+            if let Some(entry) = entry {
+                let stat = workspace.stat_file(path)?;
+                self.add(path, entry.oid().as_ref(), stat)
+            } else {
+                continue;
+            }
+        }
+        Ok(())
     }
 
     fn clear(&mut self) {
@@ -169,6 +207,16 @@ impl Index {
         Ok(res)
     }
 
+    fn remove(&mut self, path: &str) {
+        if let Some(children) = self.parents.clone().get(path) {
+            for child in children {
+                self.remove_entry(child.to_str().unwrap());
+            }
+        }
+        self.remove_entry(path);
+        self.changed = true;
+    }
+
     fn remove_entry(&mut self, key: &str) {
         if let Some(entry) = self.entries.get(key) {
             for dir in entry.parent_directories() {
@@ -184,6 +232,7 @@ impl Index {
             return;
         }
         self.entries.remove(key);
+        self.changed = true;
     }
 
     fn write(&self, digest: &mut Sha1, data: Vec<u8>) -> Result<(), Error> {

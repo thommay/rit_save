@@ -88,8 +88,12 @@ impl Workspace {
         let path = self.workspace_path(path);
         std::fs::remove_dir(path)
     }
+    pub fn stat_file(&self, path: &PathBuf) -> Result<Metadata, std::io::Error> {
+        let path = self.workspace_path(path);
+        std::fs::metadata(path)
+    }
 
-    fn workspace_path<P: AsRef<Path>>(&self, path: P) -> PathBuf {
+    pub fn workspace_path<P: AsRef<Path>>(&self, path: P) -> PathBuf {
         let path = path.as_ref().to_path_buf();
         if path.is_relative() {
             self.path.join(path)
@@ -97,10 +101,10 @@ impl Workspace {
             path
         }
     }
-    pub fn apply_migration(&self, migration: Migration, db: &Database) -> Result<(), Error> {
+    pub fn apply_migration(&self, migration: &Migration, db: &Database) -> Result<(), Error> {
         self.apply_change_list(&migration.changes, Action::Remove, db)?;
-        let mut remove = migration.rmdirs;
-        let mut make = migration.mkdirs;
+        let mut remove = migration.rmdirs.clone();
+        let mut make = migration.mkdirs.clone();
         remove.sort();
         for r in remove.iter().rev() {
             self.remove_dir(r)?;

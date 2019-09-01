@@ -30,6 +30,14 @@ impl TreeEntry {
     pub fn is_tree(&self) -> bool {
         self.kind() == Kind::Tree
     }
+
+    pub fn oid(&self) -> String {
+        match self {
+            TreeEntry::Tree(t) => t.oid(),
+            TreeEntry::Entry(e) => e.oid().to_owned(),
+            TreeEntry::Marker(m) => m.clone().oid,
+        }
+    }
 }
 
 impl Tree {

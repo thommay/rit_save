@@ -1,17 +1,16 @@
 [package]
 name = "rit"
 version = "0.1.0"
-authors = ["Thom May <thommay@improbable.io>"]
+authors = ["Thom May <thom@may.yt>"]
 edition = "2018"
 
 [dependencies]
 clap = "*"
-sha1 = {version ="0.6.0", features = ["std"]}
+sha1 = {version ="*", features = ["std"]}
 uuid = {version = "*", features = ["v4"]}
 flate2 = "*"
 byteorder = "*"
-failure = "0.1.5"
-errno = "0.2"
+failure = "*"
 libc = "0.2"
 indexmap = "*"
 fs2 = "*"
@@ -20,7 +19,7 @@ colored = { git = "https://github.com/vn971/colored.git"}
 atty = "*"
 regex = "1"
 lazy_static = "*"
-chrono = "0.4"
+chrono = "*"
 
 [dev-dependencies]
 assert_cmd = "*"

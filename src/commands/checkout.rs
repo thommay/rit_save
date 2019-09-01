@@ -10,7 +10,7 @@ pub fn cli() -> App<'static, 'static> {
 
 pub fn exec(matches: &ArgMatches) -> BoxResult<()> {
     let root = std::path::Path::new(".");
-    let repository = Repository::new(root)?;
+    let mut repository = Repository::new(root)?;
     let branch = matches
         .value_of("BRANCH")
         .expect("failed to specify branch name");
@@ -31,10 +31,7 @@ pub fn exec(matches: &ArgMatches) -> BoxResult<()> {
     let tree_diff = repository.database.tree_diff(head, branch_oid);
     let migration = repository.migration(tree_diff).plan_changes();
 
-    if let Err(e) = repository
-        .workspace
-        .apply_migration(migration, &repository.database)
-    {
+    if let Err(e) = repository.apply_migration(migration) {
         eprintln!("{}", e)
     };
 

@@ -116,6 +116,12 @@ impl Repository {
         Migration::new(t)
     }
 
+    pub fn apply_migration(&mut self, migration: Migration) -> Result<(), Error> {
+        self.workspace.apply_migration(&migration, &self.database)?;
+        self.index
+            .apply_migration(&migration.changes, &self.workspace)
+    }
+
     fn record_change(&mut self, name: String, target: Changed, status: Status) {
         self.changed.push(name.clone());
         if target == Changed::Workspace {
